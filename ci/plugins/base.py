@@ -9,11 +9,19 @@ from ci.utils import BuildFailed
 
 class Plugin(object):
     def get_builders(self):
-        return []
+        return {}
+
+    def get_build_hooks(self):
+        return {}
+
+class BuildHook(object):
+    def __init__(self, request):
+        self.request = request
+
+    def get_changed_branches(self):
+        raise NotImplementedError
 
 class Builder(object):
-    name = None
-
     def __init__(self, build):
         self.build = build
 
