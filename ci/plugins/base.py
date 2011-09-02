@@ -46,7 +46,7 @@ class Builder(object):
         rmtree(self.repo_path)
 
     def run(self):
-        pass
+        raise NotImplementedError
 
 
 class CommandBasedBuilder(Builder):
