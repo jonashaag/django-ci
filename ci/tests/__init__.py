@@ -1,1 +1,2 @@
-from plugintests import *
+from plugins import *
+from views import *
