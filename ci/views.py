@@ -14,7 +14,7 @@ def build_hook(request, project, hook_type):
     hook = BUILD_HOOKS[hook_type](request)
     branches = hook.get_changed_branches()
     for build_config in project.build_configurations.all():
-        for branch in branches:
+        for branch in filter(build_config.should_build_branch, branches):
             build_id = build_config.builds.create(branch=branch).id
             execute_build.delay(build_id, build_config.builder)
     return HttpResponse()

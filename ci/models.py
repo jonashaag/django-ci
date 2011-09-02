@@ -8,6 +8,19 @@ from ci.plugins import BUILDERS
 
 SHA1_LEN = 40
 
+class StringListField(models.CharField):
+    __metaclass__ = models.SubfieldBase
+
+    def to_python(self, value):
+        if value and not isinstance(value, list):
+            value = [s.strip() for s in value.split(',')]
+        return value
+
+    def get_prep_value(self, value):
+        if value:
+            value = ','.join(value)
+        return value
+
 class ExtraFieldFile(FieldFile):
     def touch(self, filename, **kwargs):
         self.save(filename, ContentFile(''), **kwargs)
@@ -37,6 +50,10 @@ class BuildConfiguration(models.Model):
     name = models.CharField(max_length=100)
     project = models.ForeignKey(Project, related_name='build_configurations')
     builder = models.CharField(choices=make_choice_list(BUILDERS), max_length=20)
+    branches = StringListField(blank=True, null=True, max_length=500)
+
+    def should_build_branch(self, branch):
+        return not self.branches or branch in self.branches
 
     def __unicode__(self):
         return '%s %s (%s)' % (self.project.name, self.name, self.builder)

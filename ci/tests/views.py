@@ -53,3 +53,13 @@ class BuildHookTest(BaseTestCase):
         successful_builds = Build.objects.exclude(branch='fail')
         self.assertEqual(successful_builds.count(), 2)
         self.assertEqual([b.was_successful for b in successful_builds], [True, True])
+
+        Build.objects.all().delete()
+        config_0, config_1 = self.project.build_configurations.all()
+        config_0.branches = ['fail']
+        config_1.branches = default_branch
+        config_0.save()
+        config_1.save()
+        self.assertEqual(self.client.get('/ci/p1/buildhook/testhook/').status_code, 200)
+        self.assertEqual(Build.objects.filter(branch='fail').get().configuration, config_0)
+        self.assertEqual(Build.objects.exclude(branch='fail').get().configuration, config_1)
