@@ -8,6 +8,9 @@ from ci.plugins import BUILDERS
 
 SHA1_LEN = 40
 
+def make_build_log_filename(build, filename):
+    return os.path.join('builds', str(build.id), filename)
+
 class StringListField(models.CharField):
     __metaclass__ = models.SubfieldBase
 
@@ -20,21 +23,6 @@ class StringListField(models.CharField):
         if value:
             value = ','.join(value)
         return value
-
-class ExtraFieldFile(FieldFile):
-    def touch(self, filename, **kwargs):
-        self.save(filename, ContentFile(''), **kwargs)
-        self.close()
-
-class LogFileField(models.FileField):
-    attr_class = ExtraFieldFile
-
-    def __init__(self):
-        super(LogFileField, self).__init__(upload_to=self.make_filename)
-
-    def make_filename(self, build, filename):
-        return os.path.join('builds', str(build.id), filename)
-
 
 class Project(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -66,5 +54,5 @@ class Build(models.Model):
     started = models.DateTimeField(null=True)
     finished = models.DateTimeField(null=True)
     was_successful = models.NullBooleanField()
-    stdout = LogFileField()
-    stderr = LogFileField()
+    stdout = models.FileField(upload_to=make_build_log_filename)
+    stderr = models.FileField(upload_to=make_build_log_filename)
