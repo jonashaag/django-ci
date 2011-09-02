@@ -48,6 +48,6 @@ class Build(models.Model):
     created = models.DateTimeField(auto_now_add=True)
     started = models.DateTimeField(null=True)
     finished = models.DateTimeField(null=True)
-    was_successful = models.BooleanField()
+    was_successful = models.NullBooleanField()
     stdout = LogFileField()
     stderr = LogFileField()
