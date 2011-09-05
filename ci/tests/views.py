@@ -1,5 +1,5 @@
 from django.test import TestCase
-from ci.models import BuildConfiguration, Build
+from ci.models import BuildConfiguration, Commit, Build
 from ci.plugins import BUILDERS, BUILD_HOOKS
 from ci.plugins.base import BuildHook
 from ci.tests.utils import BaseTestCase, default_branch, BuildDotShBuilder
@@ -15,8 +15,8 @@ class BuildHookTest(BaseTestCase):
         BUILDERS['sh'] = BuildDotShBuilder
         BUILD_HOOKS['testhook'] = TestBuildHook
         super(BuildHookTest, self).setUp()
-        self.project.build_configurations.create(builder='sh')
-        self.project.build_configurations.create(builder='sh')
+        self.project.configurations.create(builder='sh')
+        self.project.configurations.create(builder='sh')
 
     def tearDown(self):
         del BUILDERS['sh']
@@ -34,7 +34,9 @@ class BuildHookTest(BaseTestCase):
 
     def test_hook(self):
         self.assertEqual(self.client.get('/ci/p1/buildhook/testhook/').status_code, 200)
+        self.assertEqual(Commit.objects.count(), 1)
         self.assertEqual(Build.objects.count(), 2)
+        self.assertTrue(Commit.objects.get().was_successful)
 
     def test_hook_failing_build(self):
         self.commit({'changed': {'build.sh': 'exit 1'}, 'branch': 'fail'})
@@ -44,22 +46,29 @@ class BuildHookTest(BaseTestCase):
         BUILD_HOOKS['testhook'] = Hook
 
         self.assertEqual(self.client.get('/ci/p1/buildhook/testhook/').status_code, 200)
+        self.assertEqual(Commit.objects.count(), 2)
         self.assertEqual(Build.objects.count(), 4)
 
-        failed_builds = Build.objects.filter(branch='fail')
+        failed_commit = Commit.objects.get(branch='fail')
+        self.assertNotEqual(failed_commit.vcs_id, None)
+        self.assertFalse(failed_commit.was_successful)
+        failed_builds = failed_commit.builds.all()
         self.assertEqual(failed_builds.count(), 2)
         self.assertEqual([b.was_successful for b in failed_builds], [False, False])
 
-        successful_builds = Build.objects.exclude(branch='fail')
+        successful_commit = Commit.objects.exclude(branch='fail').get()
+        self.assertNotEqual(successful_commit.vcs_id, None)
+        self.assertTrue(successful_commit.was_successful)
+        successful_builds = successful_commit.builds.all()
         self.assertEqual(successful_builds.count(), 2)
         self.assertEqual([b.was_successful for b in successful_builds], [True, True])
 
-        Build.objects.all().delete()
-        config_0, config_1 = self.project.build_configurations.all()
+        Commit.objects.all().delete()
+        config_0, config_1 = self.project.configurations.all()
         config_0.branches = ['fail']
         config_1.branches = default_branch
         config_0.save()
         config_1.save()
         self.assertEqual(self.client.get('/ci/p1/buildhook/testhook/').status_code, 200)
-        self.assertEqual(Build.objects.filter(branch='fail').get().configuration, config_0)
-        self.assertEqual(Build.objects.exclude(branch='fail').get().configuration, config_1)
+        self.assertEqual(Commit.objects.get(branch='fail').builds.get().configuration, config_0)
+        self.assertEqual(Commit.objects.exclude(branch='fail').get().builds.get().configuration, config_1)

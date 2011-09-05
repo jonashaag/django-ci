@@ -12,9 +12,11 @@ def build_hook(request, project, hook_type):
     if hook_type not in BUILD_HOOKS:
         raise Http404
     hook = BUILD_HOOKS[hook_type](request)
-    branches = hook.get_changed_branches()
-    for build_config in project.build_configurations.all():
-        for branch in filter(build_config.should_build_branch, branches):
-            build_id = build_config.builds.create(branch=branch).id
-            execute_build.delay(build_id, build_config.builder)
+    branches = {branch: project.commits.create(branch=branch)
+                for branch in hook.get_changed_branches()}
+    for build_config in project.configurations.all():
+        for branch, commit in branches.iteritems():
+            if build_config.should_build_branch(branch):
+                build = commit.builds.create(configuration=build_config)
+                execute_build.delay(build.id, build_config.builder)
     return HttpResponse()

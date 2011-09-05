@@ -36,7 +36,7 @@ class Project(models.Model):
 
 class BuildConfiguration(models.Model):
     name = models.CharField(max_length=100)
-    project = models.ForeignKey(Project, related_name='build_configurations')
+    project = models.ForeignKey(Project, related_name='configurations')
     builder = models.CharField(choices=make_choice_list(BUILDERS), max_length=20)
     branches = StringListField(blank=True, null=True, max_length=500)
 
@@ -46,11 +46,19 @@ class BuildConfiguration(models.Model):
     def __unicode__(self):
         return '%s %s (%s)' % (self.project.name, self.name, self.builder)
 
-class Build(models.Model):
-    configuration = models.ForeignKey(BuildConfiguration, related_name='builds')
-    branch = models.CharField(max_length=100, blank=True, null=True)
-    commit = models.CharField(max_length=SHA1_LEN)
+class Commit(models.Model):
     created = models.DateTimeField(auto_now_add=True)
+    project = models.ForeignKey(Project, related_name='commits')
+    vcs_id = models.CharField(max_length=SHA1_LEN, blank=True, null=True)
+    branch = models.CharField(max_length=100)
+
+    @property
+    def was_successful(self):
+        return not self.builds.filter(was_successful=False).count()
+
+class Build(models.Model):
+    configuration = models.ForeignKey(BuildConfiguration)
+    commit = models.ForeignKey(Commit, related_name='builds')
     started = models.DateTimeField(null=True)
     finished = models.DateTimeField(null=True)
     was_successful = models.NullBooleanField()
