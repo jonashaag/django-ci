@@ -31,6 +31,16 @@ class Project(models.Model):
                                 max_length=10)
     repo_uri = models.CharField('Repository URI', max_length=500)
 
+    @models.permalink
+    def get_absolute_url(self):
+        return 'ci.views.project', (), {'project': self.slug}
+
+    def has_commits(self):
+        return self.commits.exists()
+
+    def get_latest_commit(self):
+        return self.commits.order_by('-created')[0]
+
     def __unicode__(self):
         return self.name
 

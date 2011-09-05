@@ -1,5 +1,5 @@
 from django.http import HttpResponse, Http404
-from django.shortcuts import get_object_or_404
+from django.shortcuts import render, get_object_or_404
 from ci.plugins import BUILD_HOOKS
 from ci.models import Project
 from ci.tasks import execute_build
@@ -20,3 +20,9 @@ def build_hook(request, project, hook_type):
                 build = commit.builds.create(configuration=build_config)
                 execute_build.delay(build.id, build_config.builder)
     return HttpResponse()
+
+def overview(request):
+    return render(request, 'ci/overview.html', {'projects': Project.objects.all()})
+
+def project(request, project):
+    pass

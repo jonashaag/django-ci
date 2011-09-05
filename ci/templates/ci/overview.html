@@ -1,0 +1,22 @@
+{% load ci_filters %}
+{% load url from future %}
+
+{% for project in projects %}
+  {% if project.has_commits %}
+    {% with project.get_latest_commit as latest_commit %}
+      <div class="project {{ latest_commit.was_successful|yesno:"successful,failed" }}">
+        <a href="{{ project.get_absolute_url }}" class=name>{{ project.name }}</a>
+        <span class=build-info>
+          Latest build: {{ latest_commit.was_successful|yesno:"successful,failed" }}
+          ({{ latest_commit.vcs_id|shorten_commit_id }},
+           {{ latest_commit.finished|timesince }})
+        </span>
+      </div>
+    {% endwith %}
+  {% else %}
+    <div class="project unknown">
+      <a href="{{ project.get_absolute_url }}" class=name>{{ project.name }}</a>
+      <span class=build-info>No builds</span>
+    </div>
+  {% endif %}
+{% endfor %}

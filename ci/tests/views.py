@@ -1,5 +1,5 @@
 from django.test import TestCase
-from ci.models import BuildConfiguration, Commit, Build
+from ci.models import Project, BuildConfiguration, Commit, Build
 from ci.plugins import BUILDERS, BUILD_HOOKS
 from ci.plugins.base import BuildHook
 from ci.tests.utils import BaseTestCase, default_branch, BuildDotShBuilder
@@ -8,13 +8,13 @@ class TestBuildHook(BuildHook):
     def get_changed_branches(self):
         return [default_branch]
 
-class BuildHookTest(BaseTestCase):
+class BuildHookTests(BaseTestCase):
     commits = [{'added': {'build.sh': 'exit 0'}}]
 
     def setUp(self):
         BUILDERS['sh'] = BuildDotShBuilder
         BUILD_HOOKS['testhook'] = TestBuildHook
-        super(BuildHookTest, self).setUp()
+        super(BuildHookTests, self).setUp()
         self.project.configurations.create(builder='sh')
         self.project.configurations.create(builder='sh')
 
@@ -72,3 +72,35 @@ class BuildHookTest(BaseTestCase):
         self.assertEqual(self.client.get('/ci/p1/buildhook/testhook/').status_code, 200)
         self.assertEqual(Commit.objects.get(branch='fail').builds.get().configuration, config_0)
         self.assertEqual(Commit.objects.exclude(branch='fail').get().builds.get().configuration, config_1)
+
+class OverviewTests(TestCase):
+    url = '/ci/'
+
+    def setUp(self):
+        self.project = Project.objects.create(name='Project 1', slug='p1')
+        self.config = self.project.configurations.create()
+        self.commit1 = self.project.commits.create(
+            branch='master',
+            vcs_id='abcdefghijkl'
+        )
+        self.commit1.builds.create(was_successful=True, configuration=self.config)
+
+    def test_no_commits(self):
+        Commit.objects.all().delete()
+        response = self.client.get(self.url)
+        self.assertContains(response, '/ci/p1/')
+        self.assertContains(response, 'class="project unknown"')
+        self.assertContains(response, "No builds")
+
+    def test_success(self):
+        response = self.client.get(self.url)
+        self.assertContains(response, '/ci/p1/')
+        self.assertContains(response, 'class="project successful"')
+        self.assertContains(response, "Latest build: successful")
+
+    def test_failure(self):
+        Build.objects.update(was_successful=False)
+        response = self.client.get(self.url)
+        self.assertContains(response, '/ci/p1/')
+        self.assertContains(response, 'class="project failed"')
+        self.assertContains(response, "Latest build: failed")

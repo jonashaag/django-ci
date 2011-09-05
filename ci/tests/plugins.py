@@ -20,7 +20,7 @@ class BasePluginTest(BaseTestCase):
         self.build = commit.builds.create(configuration=config)
         self.builder = SimpleBuilder(self.build)
 
-class BaseBuilderTest(BasePluginTest):
+class BaseBuilderTests(BasePluginTest):
     def _test_build(self, success):
         self.builder.execute_build()
         self.assertEqual(self.build.commit.vcs_id, self.repo.get_changeset().raw_id)
@@ -35,12 +35,12 @@ class BaseBuilderTest(BasePluginTest):
         self.builder.should_fail = True
         self._test_build(success=False)
 
-class CommandBasedBuilderTest(BasePluginTest):
+class CommandBasedBuilderTests(BasePluginTest):
     commits = [{'message': 'Added build script',
                 'added': {'build.sh': 'echo error >&2; echo output; test ! -e should_fail'}}]
 
     def setUp(self):
-        super(CommandBasedBuilderTest, self).setUp()
+        super(CommandBasedBuilderTests, self).setUp()
         self.builder = BuildDotShBuilder(self.build)
 
     def _test_build(self, success):
