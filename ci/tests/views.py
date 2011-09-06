@@ -81,9 +81,9 @@ class OverviewTests(TestCase):
         self.config = self.project.configurations.create()
         self.commit1 = self.project.commits.create(
             branch='master',
-            vcs_id='abcdefghijkl'
+            vcs_id='abcdefghijkl',
+            was_successful=True
         )
-        self.commit1.builds.create(was_successful=True, configuration=self.config)
 
     def test_no_commits(self):
         Commit.objects.all().delete()
@@ -99,7 +99,7 @@ class OverviewTests(TestCase):
         self.assertContains(response, "Latest build: successful")
 
     def test_failure(self):
-        Build.objects.update(was_successful=False)
+        Commit.objects.update(was_successful=False)
         response = self.client.get(self.url)
         self.assertContains(response, '/ci/p1/')
         self.assertContains(response, 'class="project failed"')

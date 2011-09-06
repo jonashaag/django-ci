@@ -24,6 +24,7 @@ class StringListField(models.CharField):
             value = ','.join(value)
         return value
 
+
 class Project(models.Model):
     name = models.CharField(max_length=100, unique=True)
     slug = models.SlugField(max_length=100, unique=True)
@@ -41,8 +42,6 @@ class Project(models.Model):
     def get_latest_commit(self):
         return self.commits.order_by('-created')[0]
 
-    def __unicode__(self):
-        return self.name
 
 class BuildConfiguration(models.Model):
     name = models.CharField(max_length=100)
@@ -53,18 +52,18 @@ class BuildConfiguration(models.Model):
     def should_build_branch(self, branch):
         return not self.branches or branch in self.branches
 
-    def __unicode__(self):
-        return '%s %s (%s)' % (self.project.name, self.name, self.builder)
 
 class Commit(models.Model):
     created = models.DateTimeField(auto_now_add=True)
     project = models.ForeignKey(Project, related_name='commits')
     vcs_id = models.CharField(max_length=SHA1_LEN, blank=True, null=True)
     branch = models.CharField(max_length=100)
+    was_successful = models.NullBooleanField()
 
     @property
-    def was_successful(self):
-        return not self.builds.filter(was_successful=False).count()
+    def done(self):
+        return self.was_successful is not None
+
 
 class Build(models.Model):
     configuration = models.ForeignKey(BuildConfiguration)
@@ -74,3 +73,7 @@ class Build(models.Model):
     was_successful = models.NullBooleanField()
     stdout = models.FileField(upload_to=make_build_log_filename)
     stderr = models.FileField(upload_to=make_build_log_filename)
+
+    @property
+    def done(self):
+        return self.was_successful is not None
