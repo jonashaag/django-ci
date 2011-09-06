@@ -81,36 +81,65 @@ class OverviewTests(TestCase):
         self.project = Project.objects.create(name='Project 1', slug='p1')
         self.config = self.project.configurations.create()
         self.commit0 = self.project.commits.create(
-            branch='master',
-            vcs_id='shouldnotappear',
+            vcs_id='commit0',
+            branch='branch0',
             was_successful=True
         )
         self.commit1 = self.project.commits.create(
-            branch='master',
-            vcs_id='abcdefghijkl',
+            vcs_id='commit1',
+            branch='branch1',
             was_successful=True
         )
 
+    def _test_base(self, state):
+        response = self.client.get(self.url)
+        self.assertContains(response, '/ci/p1/')
+        self.assertContains(response, 'class="project %s"' % state)
+        if state == 'unknown':
+            self.assertContains(response, "No builds")
+        else:
+            self.assertContains(response, "Latest build: %s" % state)
+            self.assertContains(response, 'branch1/commit1')
+        self.assertNotContains(response, 'branch0/commit0')
+        return response
+
+    def _test_no_pending(self, state):
+        response = self._test_base(state)
+        self.assertNotContains(response, 'Currently building')
+        self.assertNotContains(response, 'pending')
+
     def test_no_commits(self):
         Commit.objects.all().delete()
-        response = self.client.get(self.url)
-        self.assertContains(response, '/ci/p1/')
-        self.assertContains(response, 'class="project unknown"')
-        self.assertContains(response, "No builds")
+        self._test_no_pending('unknown')
 
     def test_success(self):
-        response = self.client.get(self.url)
-        self.assertContains(response, '/ci/p1/')
-        self.assertContains(response, 'class="project successful"')
-        self.assertContains(response, "Latest build: successful")
-        self.assertContains(response, 'abcdefg')
-        self.assertNotContains(response, 'shouldnotappear')
+        self._test_no_pending('successful')
 
     def test_failure(self):
         Commit.objects.update(was_successful=False)
-        response = self.client.get(self.url)
-        self.assertContains(response, '/ci/p1/')
-        self.assertContains(response, 'class="project failed"')
-        self.assertContains(response, "Latest build: failed")
-        self.assertContains(response, 'abcdefg')
-        self.assertNotContains(response, 'shouldnotappear')
+        self._test_no_pending('failed')
+
+    def test_with_building(self):
+        commit = self.project.commits.create(vcs_id='commit2', branch='branch2')
+        url = commit.get_absolute_url()
+        response = self._test_base('successful')
+        self.assertContains(response,
+            'Currently building <a class=commit href="%s">branch2/commit2</a>' % url)
+        self.assertNotContains(response, 'pending')
+
+        Commit.objects.filter(was_successful=True).update(was_successful=False)
+        self.project.commits.create()
+        response = self._test_base('failed')
+        self.assertContains(response, 'plus 1 more build(s) pending')
+        self.project.commits.create()
+        response = self._test_base('failed')
+        self.assertContains(response, 'plus 2 more build(s) pending')
+
+    def test_with_pending(self):
+        self.project.commits.create()
+        response = self._test_base('successful')
+        self.assertNotContains(response, 'Currently building')
+        self.assertContains(response, '1 pending build(s)')
+        self.project.commits.create()
+        response = self._test_base('successful')
+        self.assertContains(response, '2 pending build(s)')

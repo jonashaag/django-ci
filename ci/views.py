@@ -26,3 +26,6 @@ def overview(request):
 
 def project(request, project):
     pass
+
+def commit(request, commit):
+    pass

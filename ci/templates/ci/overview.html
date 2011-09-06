@@ -1,21 +1,37 @@
-{% load ci_filters %}
+{% load ci %}
 
 {% for project in projects %}
-  {% with project.get_latest_finished_commit as latest_commit %}
+
+  {% with latest_commit=project.get_finished_commits|first %}
     {% if latest_commit %}
       <div class="project {{ latest_commit.was_successful|yesno:"successful,failed" }}">
         <a href="{{ project.get_absolute_url }}" class=name>{{ project.name }}</a>
         <span class=build-info>
           Latest build: {{ latest_commit.was_successful|yesno:"successful,failed" }}
-          ({{ latest_commit.vcs_id|shorten_commit_id }},
-           {{ latest_commit.finished|timesince }})
+          ({% commit_link latest_commit %}, {{ latest_commit.finished|timesince }})
         </span>
-      </div>
     {% else %}
       <div class="project unknown">
         <a href="{{ project.get_absolute_url }}" class=name>{{ project.name }}</a>
         <span class=build-info>No builds</span>
-      </div>
     {% endif %}
   {% endwith %}
+
+  {% with building_commit=project.get_building_commits|first pending_commits=project.get_pending_commits.count %}
+    {% if building_commit %}
+      <span class=build-info>
+        Currently building {% commit_link building_commit %}
+        {% if pending_commits %}
+          (plus {{ pending_commits }} more build(s) pending)
+        {% endif %}
+      </span>
+    {% else %}
+      {% if pending_commits %}
+        <span class=build-info>
+          {{ pending_commits }} pending build(s)
+        </span>
+      {% endif %}
+    {% endif %}
+  {% endwith %}
+
 {% endfor %}

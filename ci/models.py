@@ -34,13 +34,16 @@ class Project(models.Model):
 
     @models.permalink
     def get_absolute_url(self):
-        return 'ci.views.project', (), {'project': self.slug}
+        return 'project', (), {'project': self.slug}
 
-    def get_latest_finished_commit(self):
-        try:
-            return self.commits.exclude(was_successful=None)[0]
-        except IndexError:
-            return None
+    def get_finished_commits(self):
+        return self.commits.exclude(was_successful=None)
+
+    def get_building_commits(self):
+        return self.commits.filter(was_successful=None).exclude(vcs_id=None)
+
+    def get_pending_commits(self):
+        return self.commits.filter(was_successful=None, vcs_id=None)
 
 
 class BuildConfiguration(models.Model):
@@ -63,9 +66,17 @@ class Commit(models.Model):
     class Meta:
         ordering = ['-created']
 
+    @models.permalink
+    def get_absolute_url(self):
+        return 'commit', (), {'project': self.project.slug, 'commit': self.id}
+
     @property
     def done(self):
         return self.was_successful is not None
+
+    @property
+    def short_vcs_id(self):
+        return self.vcs_id[:7]
 
 
 class Build(models.Model):
