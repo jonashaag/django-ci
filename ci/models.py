@@ -36,11 +36,11 @@ class Project(models.Model):
     def get_absolute_url(self):
         return 'ci.views.project', (), {'project': self.slug}
 
-    def has_commits(self):
-        return self.commits.exists()
-
     def get_latest_finished_commit(self):
-        return self.commits.exclude(was_successful=None).order_by('-created')[0]
+        try:
+            return self.commits.exclude(was_successful=None)[0]
+        except IndexError:
+            return None
 
 
 class BuildConfiguration(models.Model):
@@ -59,6 +59,9 @@ class Commit(models.Model):
     vcs_id = models.CharField(max_length=SHA1_LEN, blank=True, null=True)
     branch = models.CharField(max_length=100)
     was_successful = models.NullBooleanField()
+
+    class Meta:
+        ordering = ['-created']
 
     @property
     def done(self):

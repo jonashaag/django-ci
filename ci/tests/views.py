@@ -80,6 +80,11 @@ class OverviewTests(TestCase):
     def setUp(self):
         self.project = Project.objects.create(name='Project 1', slug='p1')
         self.config = self.project.configurations.create()
+        self.commit0 = self.project.commits.create(
+            branch='master',
+            vcs_id='shouldnotappear',
+            was_successful=True
+        )
         self.commit1 = self.project.commits.create(
             branch='master',
             vcs_id='abcdefghijkl',
@@ -98,6 +103,8 @@ class OverviewTests(TestCase):
         self.assertContains(response, '/ci/p1/')
         self.assertContains(response, 'class="project successful"')
         self.assertContains(response, "Latest build: successful")
+        self.assertContains(response, 'abcdefg')
+        self.assertNotContains(response, 'shouldnotappear')
 
     def test_failure(self):
         Commit.objects.update(was_successful=False)
@@ -105,3 +112,5 @@ class OverviewTests(TestCase):
         self.assertContains(response, '/ci/p1/')
         self.assertContains(response, 'class="project failed"')
         self.assertContains(response, "Latest build: failed")
+        self.assertContains(response, 'abcdefg')
+        self.assertNotContains(response, 'shouldnotappear')
