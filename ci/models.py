@@ -39,8 +39,8 @@ class Project(models.Model):
     def has_commits(self):
         return self.commits.exists()
 
-    def get_latest_commit(self):
-        return self.commits.order_by('-created')[0]
+    def get_latest_finished_commit(self):
+        return self.commits.exclude(was_successful=None).order_by('-created')[0]
 
 
 class BuildConfiguration(models.Model):

@@ -73,6 +73,7 @@ class BuildHookTests(BaseTestCase):
         self.assertEqual(Commit.objects.get(branch='fail').builds.get().configuration, config_0)
         self.assertEqual(Commit.objects.exclude(branch='fail').get().builds.get().configuration, config_1)
 
+
 class OverviewTests(TestCase):
     url = '/ci/'
 

@@ -3,7 +3,7 @@
 
 {% for project in projects %}
   {% if project.has_commits %}
-    {% with project.get_latest_commit as latest_commit %}
+    {% with project.get_latest_finished_commit as latest_commit %}
       <div class="project {{ latest_commit.was_successful|yesno:"successful,failed" }}">
         <a href="{{ project.get_absolute_url }}" class=name>{{ project.name }}</a>
         <span class=build-info>
