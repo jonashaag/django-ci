@@ -7,8 +7,8 @@ from ci.tasks import execute_build
 def get_project_by_slug(slug):
     return get_object_or_404(Project, slug=slug)
 
-def build_hook(request, project, hook_type):
-    project = get_project_by_slug(project)
+def build_hook(request, slug, hook_type):
+    project = get_project_by_slug(slug)
     if hook_type not in BUILD_HOOKS:
         raise Http404
     hook = BUILD_HOOKS[hook_type](request)
@@ -20,12 +20,3 @@ def build_hook(request, project, hook_type):
                 build = commit.builds.create(configuration=build_config)
                 execute_build.delay(build.id, build_config.builder)
     return HttpResponse()
-
-def overview(request):
-    return render(request, 'ci/overview.html', {'projects': Project.objects.all()})
-
-def project(request, project):
-    pass
-
-def commit(request, commit):
-    pass

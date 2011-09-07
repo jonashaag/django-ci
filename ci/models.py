@@ -34,7 +34,7 @@ class Project(models.Model):
 
     @models.permalink
     def get_absolute_url(self):
-        return 'project', (), {'project': self.slug}
+        return 'project', (), {'slug': self.slug}
 
     def get_finished_commits(self):
         return self.commits.exclude(was_successful=None)
@@ -68,7 +68,7 @@ class Commit(models.Model):
 
     @models.permalink
     def get_absolute_url(self):
-        return 'commit', (), {'project': self.project.slug, 'commit': self.id}
+        return 'commit', (), {'slug': self.project.slug, 'pk': self.id}
 
     @property
     def done(self):

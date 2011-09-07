@@ -1,6 +1,6 @@
 {% load ci %}
 
-{% for project in projects %}
+{% for project in object_list %}
 
   {% with latest_commit=project.get_finished_commits|first %}
     {% if latest_commit %}
