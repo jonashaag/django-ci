@@ -1,37 +1,38 @@
-{% load ci %}
+{% for project, finished_count, failed_count, building_count, pending_count in projects %}
 
-{% for project in object_list %}
-
-  {% with latest_commit=project.get_finished_commits|first %}
-    {% if latest_commit %}
-      <div class="project {{ latest_commit.was_successful|yesno:"successful,failed" }}">
+  {% if failed_count %}
+    <div class="project failed">
+      <a href="{{ project.get_absolute_url }}" class=name>{{ project.name }}</a>
+      <span class=build-info>
+        State: {{ failed_count }}/{{ finished_count }} build(s) failed
+      </span>
+  {% else %}
+    {% if finished_count %}
+      <div class="project successful">
         <a href="{{ project.get_absolute_url }}" class=name>{{ project.name }}</a>
-        <span class=build-info>
-          Latest build: {{ latest_commit.was_successful|yesno:"successful,failed" }}
-          ({% commit_link latest_commit %}, {{ latest_commit.finished|timesince }})
-        </span>
+        <span class=build-info>State: all builds successful</span>
     {% else %}
       <div class="project unknown">
         <a href="{{ project.get_absolute_url }}" class=name>{{ project.name }}</a>
         <span class=build-info>No builds</span>
     {% endif %}
-  {% endwith %}
+  {% endif %}
 
-  {% with building_commit=project.get_building_commits|first pending_commits=project.get_pending_commits.count %}
-    {% if building_commit %}
-      <span class=build-info>
-        Currently building {% commit_link building_commit %}
-        {% if pending_commits %}
-          (plus {{ pending_commits }} more build(s) pending)
-        {% endif %}
-      </span>
-    {% else %}
-      {% if pending_commits %}
-        <span class=build-info>
-          {{ pending_commits }} pending build(s)
-        </span>
+  {% if building_count %}
+    <span class=build-info>
+      Currently building {{ building_count }} commit(s)
+      {% if pending_count %}
+        (plus {{ pending_count }} more build(s) pending)
       {% endif %}
+    </span>
+  {% else %}
+    {% if pending_count %}
+      <span class=build-info>
+        {{ pending_count }} pending build(s)
+      </span>
     {% endif %}
-  {% endwith %}
+  {% endif %}
+
+  </div>
 
 {% endfor %}

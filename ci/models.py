@@ -1,8 +1,11 @@
 import os
 import vcs
+from itertools import repeat
+
 from django.db import models
 from django.core.files.base import ContentFile
 from django.db.models.fields.files import FieldFile
+
 from ci.utils import make_choice_list
 from ci.plugins import BUILDERS
 
@@ -31,13 +34,32 @@ class Project(models.Model):
     vcs_type = models.CharField('VCS type', choices=make_choice_list(vcs.BACKENDS),
                                 max_length=10)
     repo_uri = models.CharField('Repository URI', max_length=500)
+    important_branches = StringListField(blank=True, null=True, max_length=500)
 
     @models.permalink
     def get_absolute_url(self):
         return 'project', (), {'slug': self.slug}
 
-    def get_finished_commits(self):
-        return self.commits.exclude(was_successful=None)
+    def get_finished_builds(self):
+        # Django supports neither SELECT ... FROM <subselect> nor GROUP BY :-(
+        # Could use DISTINCT ON once #6422 is merged
+        sql_params = [self.id]
+        branch_names_sql = ''
+        if self.important_branches:
+            sql_params.extend(self.important_branches)
+            branch_names_sql = ' AND branch IN (%s)' % \
+                ', '.join(repeat('%s', len(self.important_branches)))
+        return Commit.objects.raw(
+            '''
+            SELECT * FROM (
+              SELECT * FROM ci_commit
+              WHERE project_id=%%s AND was_successful IS NOT NULL %s
+              ORDER BY created
+            )
+            GROUP BY branch
+            ''' % branch_names_sql,
+            sql_params
+        )
 
     def get_building_commits(self):
         return self.commits.filter(was_successful=None).exclude(vcs_id=None)

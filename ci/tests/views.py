@@ -78,68 +78,79 @@ class OverviewTests(TestCase):
     url = '/ci/'
 
     def setUp(self):
+        from itertools import product
         self.project = Project.objects.create(name='Project 1', slug='p1')
         self.config = self.project.configurations.create()
-        self.commit0 = self.project.commits.create(
-            vcs_id='commit0',
-            branch='branch0',
-            was_successful=True
-        )
-        self.commit1 = self.project.commits.create(
-            vcs_id='commit1',
-            branch='branch1',
-            was_successful=True
-        )
+        for branch_n, commit_n in product([0, 1, 2], [0, 1, 2]):
+            self.project.commits.create(
+                vcs_id='c_%d_%d' % (branch_n, commit_n),
+                branch='b_%d' % branch_n,
+                was_successful=(commit_n==2)
+            )
 
-    def _test_base(self, state):
+    def _test_base(self, state, state_text):
         response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
         self.assertContains(response, '/ci/p1/')
         self.assertContains(response, 'class="project %s"' % state)
-        if state == 'unknown':
-            self.assertContains(response, "No builds")
-        else:
-            self.assertContains(response, "Latest build: %s" % state)
-            self.assertContains(response, 'branch1/commit1')
-        self.assertNotContains(response, 'branch0/commit0')
+        self.assertContains(response, state_text)
         return response
 
-    def _test_no_pending(self, state):
-        response = self._test_base(state)
-        self.assertNotContains(response, 'Currently building')
-        self.assertNotContains(response, 'pending')
+    def _test_no_pending(self, *args):
+        response = self._test_base(*args)
+        self.assertNotContains(response, "Currently building")
+        self.assertNotContains(response, "pending")
 
     def test_no_commits(self):
         Commit.objects.all().delete()
-        self._test_no_pending('unknown')
+        self._test_no_pending('unknown', "No builds")
 
     def test_success(self):
-        self._test_no_pending('successful')
+        response = self._test_no_pending('successful', "State: all builds successful")
+
+    def test_success_important_branches(self):
+        Commit.objects.filter(branch='b_0').update(was_successful=False)
+        self.project.important_branches = 'b_1, b_2'
+        self.project.save()
+        self._test_no_pending('successful', "State: all builds successful")
 
     def test_failure(self):
+        Commit.objects.exclude(branch='b_2').update(was_successful=False)
+        self._test_no_pending('failed', "State: 2/3 build(s) failed")
+
+    def test_failure_important_branches(self):
+        self.project.commits.create(vcs_id='b_3_1', branch='b_3')
         Commit.objects.update(was_successful=False)
-        self._test_no_pending('failed')
+        self.project.important_branches = 'b_0, b_2'
+        self.project.save()
+        self._test_no_pending('failed', "State: 2/2 build(s) failed")
+        Commit.objects.filter(branch='b_0').update(was_successful=True)
+        self._test_no_pending('failed', "State: 1/2 build(s) failed")
 
     def test_with_building(self):
-        commit = self.project.commits.create(vcs_id='commit2', branch='branch2')
-        url = commit.get_absolute_url()
-        response = self._test_base('successful')
-        self.assertContains(response,
-            'Currently building <a class=commit href="%s">branch2/commit2</a>' % url)
+        self.project.commits.create(vcs_id='b_3_1', branch='b_3')
+        response = self._test_base('successful', "State: all builds successful")
+        self.assertContains(response, "Currently building 1 commit(s)")
         self.assertNotContains(response, 'pending')
+        self.project.commits.create(vcs_id='b_3_1', branch='b_4')
+        response = self._test_base('successful', "State: all builds successful")
+        self.assertContains(response, "Currently building 2 commit(s)")
 
         Commit.objects.filter(was_successful=True).update(was_successful=False)
         self.project.commits.create()
-        response = self._test_base('failed')
-        self.assertContains(response, 'plus 1 more build(s) pending')
+        response = self._test_base('failed', "State: 3/3 build(s) failed")
+        self.assertContains(response, "Currently building 2 commit(s)")
+        self.assertContains(response, "plus 1 more build(s) pending")
         self.project.commits.create()
-        response = self._test_base('failed')
-        self.assertContains(response, 'plus 2 more build(s) pending')
+        response = self._test_base('failed', "State: 3/3 build(s) failed")
+        self.assertContains(response, "Currently building 2 commit(s)")
+        self.assertContains(response, "plus 2 more build(s) pending")
 
     def test_with_pending(self):
         self.project.commits.create()
-        response = self._test_base('successful')
-        self.assertNotContains(response, 'Currently building')
-        self.assertContains(response, '1 pending build(s)')
+        response = self._test_base('successful', "State: all builds successful")
+        self.assertNotContains(response, "Currently building")
+        self.assertContains(response, "1 pending build(s)")
         self.project.commits.create()
-        response = self._test_base('successful')
-        self.assertContains(response, '2 pending build(s)')
+        response = self._test_base('successful', "State: all builds successful")
+        self.assertContains(response, "2 pending build(s)")
