@@ -49,23 +49,28 @@ class Project(models.Model):
             sql_params.extend(self.important_branches)
             branch_names_sql = ' AND branch IN (%s)' % \
                 ', '.join(repeat('%s', len(self.important_branches)))
-        return Commit.objects.raw(
+        return Build.objects.raw(
             '''
-            SELECT * FROM (
-              SELECT * FROM ci_commit
-              WHERE project_id=%%s AND was_successful IS NOT NULL %s
-              ORDER BY created
+            SELECT * FROM ci_build
+            WHERE commit_id IN (
+              SELECT id FROM (
+                SELECT * FROM ci_commit
+                WHERE project_id=%%s AND was_successful IS NOT NULL %s
+                ORDER BY created
+              )
+              GROUP BY branch
             )
-            GROUP BY branch
             ''' % branch_names_sql,
             sql_params
         )
 
-    def get_building_commits(self):
-        return self.commits.filter(was_successful=None).exclude(vcs_id=None)
+    def get_active_builds(self):
+        return Build.objects.filter(commit__was_successful=None) \
+                            .exclude(commit__vcs_id=None)
 
-    def get_pending_commits(self):
-        return self.commits.filter(was_successful=None, vcs_id=None)
+    def get_pending_builds(self):
+        return Build.objects.filter(commit__was_successful=None,
+                                    commit__vcs_id=None)
 
 
 class BuildConfiguration(models.Model):

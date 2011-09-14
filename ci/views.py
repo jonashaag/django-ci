@@ -35,7 +35,7 @@ class ProjectList(ListView):
                 project,
                 len(finished_builds),
                 len(filter(lambda b: not b.was_successful, finished_builds)),
-                project.get_building_commits().count(),
-                project.get_pending_commits().count()
+                project.get_active_builds().count(),
+                project.get_pending_builds().count()
             ])
         return context
