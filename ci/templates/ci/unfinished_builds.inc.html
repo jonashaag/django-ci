@@ -1,0 +1,16 @@
+{% with active_count=active_builds.count pending_count=pending_builds.count %}
+  {% if active_count %}
+    <span class=build-info>
+      Currently executing {{ active_count }} build(s)
+      {% if pending_count %}
+        (plus {{ pending_count }} more build(s) pending)
+      {% endif %}
+    </span>
+  {% else %}
+    {% if pending_count %}
+      <span class=build-info>
+        {{ pending_count }} pending build(s)
+      </span>
+    {% endif %}
+  {% endif %}
+{% endwith %}

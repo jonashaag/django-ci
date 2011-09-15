@@ -1,1 +1,3 @@
-<a class=commit href="{{ commit.get_absolute_url }}">{{ commit.branch}}/{{ commit.short_vcs_id }}</a>
+<a class=branch-commit href="{{ commit.get_absolute_url }}">
+  <span class=branch>{{ commit.branch }}</span>/<span class=commit>{{ commit.short_vcs_id }}</span>
+</a>

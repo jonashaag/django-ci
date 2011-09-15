@@ -1,9 +1,10 @@
+import lxml.html
 from datetime import datetime
 from django.test import TestCase
-from ci.models import Project, BuildConfiguration, Commit, Build
+from ci.models import Project, Commit, Build
 from ci.plugins import BUILDERS, BUILD_HOOKS
 from ci.plugins.base import BuildHook
-from ci.tests.utils import BaseTestCase, default_branch, BuildDotShBuilder
+from ci.tests.utils import BaseTestCase, VCS, default_branch, BuildDotShBuilder
 
 class TestBuildHook(BuildHook):
     def get_changed_branches(self):
@@ -134,20 +135,20 @@ class OverviewTests(TestCase):
         b3c1 = self.project.commits.create(branch='b3', vcs_id='c1', done=True)
         self.add_build(b3c1, done=True, success=False)
         self._test_no_pending('failed', "State: 1/4 build(s) failed")
-        self.project.important_branches = 'b1, b2'
+        self.project.important_branches = 'b1, b2, doesnotexist'
         self.project.save()
         self._test_no_pending('successful', "State: all builds successful")
         self.project.important_branches = 'b3'
         self.project.save()
         self._test_no_pending('failed', "State: 1/1 build(s) failed")
 
-    def test_with_building(self):
-        building = self.project.commits.create(vcs_id='c2', branch='b2')
-        self.add_build(building, done=False)
+    def test_with_active(self):
+        active = self.project.commits.create(vcs_id='c2', branch='b2')
+        self.add_build(active, done=False)
         response = self._test_base('successful', "State: all builds successful")
         self.assertContains(response, "Currently executing 1 build(s)")
         self.assertNotContains(response, 'pending')
-        self.add_build(building, done=False)
+        self.add_build(active, done=False)
         response = self._test_base('successful', "State: all builds successful")
         self.assertContains(response, "Currently executing 2 build(s)")
 
@@ -171,3 +172,77 @@ class OverviewTests(TestCase):
         self.add_build(pending, started=False)
         response = self._test_base('successful', "State: all builds successful")
         self.assertContains(response, "2 pending build(s)")
+
+
+class ProjectDetailsTests(TestCase):
+    # XXX show branches without builds (+ pending + active)
+    url = '/ci/my-super-cool-project/'
+
+    def setUp(self):
+        # Project with two branches '$default_branch' and 'dev'.
+        # Both branches get tested; docs are generated for '$default_branch' only.
+        self.project = Project.objects.create(
+            name='My super cool Project',
+            slug='my-super-cool-project',
+            vcs_type=VCS
+        )
+        tests = self.project.configurations.create(name='tests')
+        docs = self.project.configurations.create(name='docs', branches=[default_branch])
+
+        d1 = self.project.commits.create(branch='dev', vcs_id='dev1', done=True)
+        m1 = self.project.commits.create(branch=default_branch, vcs_id='default1', done=True)
+
+        # default: docs built successfully but the tests failed
+        self.add_build(m1, tests, was_successful=False)
+        self.add_build(m1, docs, was_successful=True)
+
+        # dev: tests failed
+        self.add_build(d1, tests, was_successful=False)
+
+        self.branch_list = [
+            (default_branch, 'default', [('tests', 'failed'),
+                                         ('docs', 'successful')]),
+            ('dev', 'dev1', [('tests', 'failed')]),
+        ]
+
+    def add_build(self, commit, config, **kwargs):
+        kwargs.setdefault('started', datetime.now())
+        kwargs.setdefault('finished', datetime.now())
+        return commit.builds.create(configuration=config, **kwargs)
+
+    def assertBranchList(self, expected_branch_list):
+        html = self.client.get(self.url).content
+        dom = lxml.html.document_fromstring(html)
+        branch_list = []
+        for li in dom.find('.//ul').getchildren():
+            branch, commit = [span.text.strip() for span in li.find('a').findall('span')]
+            builds = [li2.find('span') for li2 in li.find('ul').getchildren()]
+            builds = [(b.text.strip(), b.attrib['class'].split()[1]) for b in builds]
+            branch_list.append((branch, commit, builds))
+        self.assertEqual(branch_list, expected_branch_list)
+
+    def test_1(self):
+        self.assertBranchList(self.branch_list)
+
+    def test_important_branches(self):
+        # if given, 'important_branches' specifies the branch order
+        self.project.important_branches = ['dev', default_branch, 'doesnotexist']
+        self.project.save()
+        self.assertBranchList(self.branch_list[::-1])
+        self.project.important_branches = 'dev'
+        self.project.save()
+        self.assertBranchList([self.branch_list[1]])
+
+    def test_with_active_and_pending(self):
+        active = self.project.commits.create(branch=default_branch, vcs_id='active', done=False)
+        active.builds.create(started=datetime.now(), configuration_id=0)
+        self.assertBranchList(self.branch_list)
+
+        response = self.client.get(self.url)
+        self.assertContains(response, 'Currently executing 1 build(s)')
+        self.assertNotContains(response, 'pending')
+        active.builds.create(configuration_id=0)
+
+        response = self.client.get(self.url)
+        self.assertContains(response, 'Currently executing 1 build(s)')
+        self.assertContains(response, '(plus 1 more build(s) pending)')

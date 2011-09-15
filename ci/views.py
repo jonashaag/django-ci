@@ -1,13 +1,17 @@
+from collections import OrderedDict
+
 from django.http import HttpResponse, Http404
 from django.shortcuts import render, get_object_or_404
-from django.views.generic import ListView
+from django.views.generic import ListView, DetailView
 
 from ci.models import Project
 from ci.plugins import BUILD_HOOKS
 from ci.tasks import execute_build
 
+
 def get_project_by_slug(slug):
     return get_object_or_404(Project, slug=slug)
+
 
 def build_hook(request, slug, hook_type):
     project = get_project_by_slug(slug)
@@ -23,19 +27,41 @@ def build_hook(request, slug, hook_type):
                 execute_build.delay(build.id, build_config.builder)
     return HttpResponse()
 
+
 class ProjectList(ListView):
     model = Project
 
     def get_context_data(self, **kwargs):
         context = super(ProjectList, self).get_context_data(**kwargs)
         context['projects'] = projects = []
-        for project in context['object_list']:
+        for project in self.object_list:
             finished_builds = list(project.get_latest_branch_builds())
             projects.append([
                 project,
                 len(finished_builds),
                 len(filter(lambda b: not b.was_successful, finished_builds)),
-                project.get_active_builds().count(),
-                project.get_pending_builds().count()
+                project.get_active_builds(),
+                project.get_pending_builds(),
             ])
         return context
+
+
+class ProjectDetails(DetailView):
+    model = Project
+
+    def get_context_data(self, **kwargs):
+        context = super(ProjectDetails, self).get_context_data(**kwargs)
+        context['commits'] = self.get_latest_branch_builds_grouped_by_commit()
+        return context
+
+    def get_latest_branch_builds_grouped_by_commit(self):
+        branches = {}
+        for build in self.object.get_latest_branch_builds():
+            _, builds = branches.setdefault(build.commit.branch,
+                                            (build.commit, []))
+            builds.append(build)
+        branch_order = filter(branches.__contains__, self.object.get_branch_order())
+        for commit, builds in [branches.pop(b) for b in branch_order] + branches.values():
+            active = commit.get_active_builds_for_branch()
+            pending = commit.get_pending_builds_for_branch()
+            yield commit, builds, active, pending

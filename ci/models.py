@@ -1,10 +1,9 @@
 import os
-import vcs
 from itertools import repeat
 
+import vcs
 from django.db import models
-from django.core.files.base import ContentFile
-from django.db.models.fields.files import FieldFile
+from django.db.utils import IntegrityError
 
 from ci.utils import make_choice_list
 from ci.plugins import BUILDERS
@@ -19,7 +18,7 @@ class StringListField(models.CharField):
 
     def to_python(self, value):
         if value and not isinstance(value, list):
-            value = [s.strip() for s in value.split(',')]
+            value = filter(None, [s.strip() for s in value.split(',')])
         return value
 
     def get_prep_value(self, value):
@@ -43,6 +42,12 @@ class Project(models.Model):
     @models.permalink
     def get_absolute_url(self):
         return 'project', (), {'slug': self.slug}
+
+    def get_vcs_backend(self):
+        return vcs.get_backend(self.vcs_type)
+
+    def get_branch_order(self):
+        return self.important_branches or [self.get_vcs_backend().DEFAULT_BRANCH_NAME]
 
     def get_latest_branch_builds(self):
         # Django supports neither SELECT ... FROM <subselect> nor GROUP BY :-(
@@ -103,6 +108,16 @@ class Commit(models.Model):
     def short_vcs_id(self):
         return self.vcs_id[:7]
 
+    def get_builds_for_branch(self):
+        return Build.objects.filter(commit__branch=self.branch)
+
+    def get_active_builds_for_branch(self):
+        return self.get_builds_for_branch().filter(started__isnull=False,
+                                                   finished__isnull=True)
+
+    def get_pending_builds_for_branch(self):
+        return self.get_builds_for_branch().filter(started__isnull=True)
+
 
 class Build(models.Model):
     configuration = models.ForeignKey(BuildConfiguration)
@@ -112,3 +127,8 @@ class Build(models.Model):
     was_successful = models.NullBooleanField()
     stdout = models.FileField(upload_to=make_build_log_filename)
     stderr = models.FileField(upload_to=make_build_log_filename)
+
+    def save(self, *args, **kwargs):
+        if self.was_successful and not self.finished:
+            raise IntegrityError("Can't set 'was_successful' without 'finished'")
+        return super(Build, self).save(*args, **kwargs)

@@ -1,4 +1,4 @@
-{% for project, finished_count, failed_count, building_count, pending_count in projects %}
+{% for project, finished_count, failed_count, active_builds, pending_builds in projects %}
   {% if failed_count %}
     <div class="project failed">
       <a href="{{ project.get_absolute_url }}" class=name>{{ project.name }}</a>
@@ -17,20 +17,6 @@
     {% endif %}
   {% endif %}
 
-  {% if building_count %}
-    <span class=build-info>
-      Currently executing {{ building_count }} build(s)
-      {% if pending_count %}
-        (plus {{ pending_count }} more build(s) pending)
-      {% endif %}
-    </span>
-  {% else %}
-    {% if pending_count %}
-      <span class=build-info>
-        {{ pending_count }} pending build(s)
-      </span>
-    {% endif %}
-  {% endif %}
-
+  {% include 'ci/unfinished_builds.inc.html' %}
   </div>
 {% endfor %}

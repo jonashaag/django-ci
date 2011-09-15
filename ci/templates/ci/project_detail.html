@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block content %}
+{% load ci %}
+{% with active_builds=project.get_active_builds pending_builds=project.get_pending_builds %}
+  {% include 'ci/unfinished_builds.inc.html' %}
+{% endwith %}
+<ul>
+{% for commit, builds, active_builds, pending_builds in commits %}
+  <li>
+    {% commit_link commit %}
+    {% include 'ci/unfinished_builds.inc.html' %}
+    <ul>
+    {% for build in builds %}
+      <li>
+        <span class="build {{ build.was_successful|yesno:"successful,failed" }}">
+          {{ build.configuration.name }}
+        </span>
+      </li>
+    {% endfor %}
+    </ul>
+  </li>
+{% endfor %}
+</ul>
+{% endblock %}

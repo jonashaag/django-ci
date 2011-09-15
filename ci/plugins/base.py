@@ -3,7 +3,6 @@ from datetime import datetime
 from subprocess import Popen, PIPE
 from tempfile import mkdtemp
 from shutil import rmtree
-from vcs import get_backend
 from django.core.files.base import ContentFile
 from ci.utils import BuildFailed
 
@@ -40,7 +39,7 @@ class Builder(object):
     def setup_build(self):
         self.repo_path = mkdtemp()
         rmdir(self.repo_path)
-        Repository = get_backend(self.build.configuration.project.vcs_type)
+        Repository = self.build.configuration.project.get_vcs_backend()
         self.repo = Repository(
             self.repo_path,
             create=True,
