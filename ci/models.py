@@ -36,11 +36,15 @@ class Project(models.Model):
     repo_uri = models.CharField('Repository URI', max_length=500)
     important_branches = StringListField(blank=True, null=True, max_length=500)
 
+    @property
+    def builds(self):
+        return Build.objects.filter(commit__project=self)
+
     @models.permalink
     def get_absolute_url(self):
         return 'project', (), {'slug': self.slug}
 
-    def get_finished_builds(self):
+    def get_latest_branch_builds(self):
         # Django supports neither SELECT ... FROM <subselect> nor GROUP BY :-(
         # Could use DISTINCT ON once #6422 is merged
         sql_params = [self.id]
@@ -55,7 +59,7 @@ class Project(models.Model):
             WHERE commit_id IN (
               SELECT id FROM (
                 SELECT * FROM ci_commit
-                WHERE project_id=%%s AND was_successful IS NOT NULL %s
+                WHERE project_id=%%s AND done %s
                 ORDER BY created
               )
               GROUP BY branch
@@ -65,12 +69,10 @@ class Project(models.Model):
         )
 
     def get_active_builds(self):
-        return Build.objects.filter(commit__was_successful=None) \
-                            .exclude(commit__vcs_id=None)
+        return self.builds.filter(started__isnull=False, finished__isnull=True)
 
     def get_pending_builds(self):
-        return Build.objects.filter(commit__was_successful=None,
-                                    commit__vcs_id=None)
+        return self.builds.filter(started__isnull=True)
 
 
 class BuildConfiguration(models.Model):
@@ -88,7 +90,7 @@ class Commit(models.Model):
     project = models.ForeignKey(Project, related_name='commits')
     vcs_id = models.CharField(max_length=SHA1_LEN, blank=True, null=True)
     branch = models.CharField(max_length=100)
-    was_successful = models.NullBooleanField()
+    done = models.BooleanField()
 
     class Meta:
         ordering = ['-created']
@@ -96,10 +98,6 @@ class Commit(models.Model):
     @models.permalink
     def get_absolute_url(self):
         return 'commit', (), {'slug': self.project.slug, 'pk': self.id}
-
-    @property
-    def done(self):
-        return self.was_successful is not None
 
     @property
     def short_vcs_id(self):
@@ -114,7 +112,3 @@ class Build(models.Model):
     was_successful = models.NullBooleanField()
     stdout = models.FileField(upload_to=make_build_log_filename)
     stderr = models.FileField(upload_to=make_build_log_filename)
-
-    @property
-    def done(self):
-        return self.was_successful is not None

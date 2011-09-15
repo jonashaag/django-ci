@@ -30,7 +30,7 @@ class ProjectList(ListView):
         context = super(ProjectList, self).get_context_data(**kwargs)
         context['projects'] = projects = []
         for project in context['object_list']:
-            finished_builds = list(project.get_finished_builds())
+            finished_builds = list(project.get_latest_branch_builds())
             projects.append([
                 project,
                 len(finished_builds),

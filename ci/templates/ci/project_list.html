@@ -1,5 +1,4 @@
 {% for project, finished_count, failed_count, building_count, pending_count in projects %}
-
   {% if failed_count %}
     <div class="project failed">
       <a href="{{ project.get_absolute_url }}" class=name>{{ project.name }}</a>
@@ -34,5 +33,4 @@
   {% endif %}
 
   </div>
-
 {% endfor %}

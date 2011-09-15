@@ -1,3 +1,4 @@
+from datetime import datetime
 from django.test import TestCase
 from ci.models import Project, BuildConfiguration, Commit, Build
 from ci.plugins import BUILDERS, BUILD_HOOKS
@@ -33,10 +34,11 @@ class BuildHookTests(BaseTestCase):
         self.assert404(self.client.get('/ci/p1/buildhook/no-such-hook/'))
 
     def test_hook(self):
+        self.assertEqual(Commit.objects.count(), 0)
         self.assertEqual(self.client.get('/ci/p1/buildhook/testhook/').status_code, 200)
         self.assertEqual(Commit.objects.count(), 1)
         self.assertEqual(Build.objects.count(), 2)
-        self.assertTrue(Commit.objects.get().was_successful)
+        self.assertTrue(Commit.objects.get().done)
 
     def test_hook_failing_build(self):
         self.commit({'changed': {'build.sh': 'exit 1'}, 'branch': 'fail'})
@@ -47,18 +49,17 @@ class BuildHookTests(BaseTestCase):
 
         self.assertEqual(self.client.get('/ci/p1/buildhook/testhook/').status_code, 200)
         self.assertEqual(Commit.objects.count(), 2)
+        self.assertEqual(Commit.objects.filter(done=False).count(), 0)
         self.assertEqual(Build.objects.count(), 4)
 
         failed_commit = Commit.objects.get(branch='fail')
         self.assertNotEqual(failed_commit.vcs_id, None)
-        self.assertFalse(failed_commit.was_successful)
         failed_builds = failed_commit.builds.all()
         self.assertEqual(failed_builds.count(), 2)
         self.assertEqual([b.was_successful for b in failed_builds], [False, False])
 
         successful_commit = Commit.objects.exclude(branch='fail').get()
         self.assertNotEqual(successful_commit.vcs_id, None)
-        self.assertTrue(successful_commit.was_successful)
         successful_builds = successful_commit.builds.all()
         self.assertEqual(successful_builds.count(), 2)
         self.assertEqual([b.was_successful for b in successful_builds], [True, True])
@@ -78,21 +79,36 @@ class OverviewTests(TestCase):
     url = '/ci/'
 
     def setUp(self):
-        from itertools import product
-        self.project = Project.objects.create(name='Project 1', slug='p1')
-        self.config1 = self.project.configurations.create()
-        self.config2 = self.project.configurations.create()
+        self.project = Project.objects.create(name='p1', slug='p1')
+        b1c1 = self.project.commits.create(vcs_id='c1', branch='b1', done=True)
+        b2c1 = self.project.commits.create(vcs_id='c1', branch='b2', done=True)
+        for commit in [b1c1, b1c1, b2c1]:
+            self.add_build(commit, done=True, success=True)
 
-        b1c1 = self.project.commits.create(vcs_id='c1', branch='b1', was_successful=True)
-        b2c1 = self.project.commits.create(vcs_id='c1', branch='b2', was_successful=True)
+        # here to ensure that only builds/commits that belong to each project
+        # are taken into account (rather than *all* builds/commits)
+        p2 = Project.objects.create(name='p2', slug='p2')
+        foo1 = p2.commits.create(branch='foo', vcs_id='foo1')
+        bar1 = p2.commits.create(branch='bar', vcs_id='bar1')
+        self.add_build(foo1, done=False)
+        self.add_build(foo1, done=True, success=False)
+        self.add_build(bar1, done=True, success=True)
 
-        b1c1.builds.create(configuration_id=0, was_successful=True)
-        b1c1.builds.create(configuration_id=0, was_successful=True)
-        b2c1.builds.create(configuration_id=0, was_successful=True)
+    def add_build(self, commit, started=True, done=None, success=None):
+        kwargs = {'configuration_id': 0}
+        if started:
+            assert done is not None
+            kwargs['started'] = datetime.now()
+        if done:
+            kwargs['finished'] = datetime.now()
+            assert success is not None
+            kwargs['was_successful'] = success
+        commit.builds.create(**kwargs)
 
     def _test_base(self, state, state_text):
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 200)
+        response.content = response.content[:response.content.find('</div>')]
         self.assertContains(response, '/ci/p1/')
         self.assertContains(response, 'class="project %s"' % state)
         self.assertContains(response, state_text)
@@ -115,8 +131,8 @@ class OverviewTests(TestCase):
         self._test_no_pending('failed', "State: 2/3 build(s) failed")
 
     def test_important_branches(self):
-        b3c1 = self.project.commits.create(branch='b3', vcs_id='c1', was_successful=False)
-        b3c1.builds.create(configuration_id=0, was_successful=False)
+        b3c1 = self.project.commits.create(branch='b3', vcs_id='c1', done=True)
+        self.add_build(b3c1, done=True, success=False)
         self._test_no_pending('failed', "State: 1/4 build(s) failed")
         self.project.important_branches = 'b1, b2'
         self.project.save()
@@ -127,31 +143,31 @@ class OverviewTests(TestCase):
 
     def test_with_building(self):
         building = self.project.commits.create(vcs_id='c2', branch='b2')
-        building.builds.create(configuration_id=0)
+        self.add_build(building, done=False)
         response = self._test_base('successful', "State: all builds successful")
         self.assertContains(response, "Currently executing 1 build(s)")
         self.assertNotContains(response, 'pending')
-        building.builds.create(configuration_id=0)
+        self.add_build(building, done=False)
         response = self._test_base('successful', "State: all builds successful")
         self.assertContains(response, "Currently executing 2 build(s)")
 
         pending = self.project.commits.create(branch='c3')
-        pending.builds.create(configuration_id=0)
+        self.add_build(pending, started=False)
         Build.objects.filter(was_successful=True).update(was_successful=False)
         response = self._test_base('failed', "State: 3/3 build(s) failed")
         self.assertContains(response, "Currently executing 2 build(s)")
         self.assertContains(response, "plus 1 more build(s) pending")
-        pending.builds.create(configuration_id=0)
+        self.add_build(pending, started=False)
         response = self._test_base('failed', "State: 3/3 build(s) failed")
         self.assertContains(response, "Currently executing 2 build(s)")
         self.assertContains(response, "plus 2 more build(s) pending")
 
     def test_with_pending(self):
         pending = self.project.commits.create(branch='c3')
-        pending.builds.create(configuration_id=0)
+        self.add_build(pending, started=False)
         response = self._test_base('successful', "State: all builds successful")
         self.assertNotContains(response, "Currently executing")
         self.assertContains(response, "1 pending build(s)")
-        pending.builds.create(configuration_id=0)
+        self.add_build(pending, started=False)
         response = self._test_base('successful', "State: all builds successful")
         self.assertContains(response, "2 pending build(s)")
