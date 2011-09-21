@@ -128,6 +128,9 @@ class Build(models.Model):
     stdout = models.FileField(upload_to=make_build_log_filename)
     stderr = models.FileField(upload_to=make_build_log_filename)
 
+    class Meta:
+        unique_together = ['configuration', 'commit']
+
     def save(self, *args, **kwargs):
         if self.was_successful and not self.finished:
             raise IntegrityError("Can't set 'was_successful' without 'finished'")

@@ -1,3 +1,4 @@
+import random
 import lxml.html
 from datetime import datetime
 from django.test import TestCase
@@ -96,7 +97,7 @@ class OverviewTests(TestCase):
         self.add_build(bar1, done=True, success=True)
 
     def add_build(self, commit, started=True, done=None, success=None):
-        kwargs = {'configuration_id': 0}
+        kwargs = {'configuration_id': random.randint(1, 9999)}
         if started:
             assert done is not None
             kwargs['started'] = datetime.now()
@@ -235,13 +236,13 @@ class ProjectDetailsTests(TestCase):
 
     def test_with_active_and_pending(self):
         active = self.project.commits.create(branch=default_branch, vcs_id='active', done=False)
-        active.builds.create(started=datetime.now(), configuration_id=0)
+        active.builds.create(started=datetime.now(), configuration_id=-1)
         self.assertBranchList(self.branch_list)
 
         response = self.client.get(self.url)
         self.assertContains(response, 'Currently executing 1 build(s)')
         self.assertNotContains(response, 'pending')
-        active.builds.create(configuration_id=0)
+        active.builds.create(configuration_id=-2)
 
         response = self.client.get(self.url)
         self.assertContains(response, 'Currently executing 1 build(s)')
