@@ -4,7 +4,7 @@ from django.http import HttpResponse, Http404
 from django.shortcuts import render, get_object_or_404
 from django.views.generic import ListView, DetailView
 
-from ci.models import Project
+from ci.models import Project, Commit
 from ci.plugins import BUILD_HOOKS
 from ci.tasks import execute_build
 
@@ -65,3 +65,23 @@ class ProjectDetails(DetailView):
             active = commit.get_active_builds_for_branch()
             pending = commit.get_pending_builds_for_branch()
             yield commit, builds, active, pending
+
+
+class CommitDetails(DetailView):
+    model = Commit
+
+    def get_context_data(self, **kwargs):
+        context = super(CommitDetails, self).get_context_data(**kwargs)
+        context['builds'] = self.get_builds_grouped_by_state()
+        return context
+
+    def get_builds_grouped_by_state(self):
+        builds = OrderedDict((state, []) for state in
+                             ('failed', 'successful', 'active', 'pending'))
+        for build in self.object.builds.all():
+            if build.done:
+                state = 'successful' if build.was_successful else 'failed'
+            else:
+                state = 'pending' if build.pending else 'active'
+            builds[state].append(build)
+        return builds

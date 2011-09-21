@@ -120,7 +120,7 @@ class Commit(models.Model):
 
 
 class Build(models.Model):
-    configuration = models.ForeignKey(BuildConfiguration)
+    configuration = models.ForeignKey(BuildConfiguration, related_name='builds')
     commit = models.ForeignKey(Commit, related_name='builds')
     started = models.DateTimeField(null=True)
     finished = models.DateTimeField(null=True)
@@ -132,6 +132,18 @@ class Build(models.Model):
         unique_together = ['configuration', 'commit']
 
     def save(self, *args, **kwargs):
-        if self.was_successful and not self.finished:
-            raise IntegrityError("Can't set 'was_successful' without 'finished'")
+        assert not (self.was_successful and not self.finished)
+        assert not (self.finished and not self.started)
         return super(Build, self).save(*args, **kwargs)
+
+    @property
+    def done(self):
+        return self.finished is not None
+
+    @property
+    def pending(self):
+        return self.started is None
+
+    @property
+    def active(self):
+        return not self.pending and not self.done

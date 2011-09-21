@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+{% block content %}
+<ul>
+{% for state, builds in builds.iteritems %}
+  {% for build in builds %}
+    <li><span class="build {{ state }}">{{ build.configuration.name }}</span></li>
+  {% endfor %}
+{% endfor %}
+</ul>
+{% endblock %}

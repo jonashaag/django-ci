@@ -247,3 +247,40 @@ class ProjectDetailsTests(TestCase):
         response = self.client.get(self.url)
         self.assertContains(response, 'Currently executing 1 build(s)')
         self.assertContains(response, '(plus 1 more build(s) pending)')
+
+
+class CommitDetailsTests(TestCase):
+    url = '/ci/testproject/builds/1/'
+
+    def setUp(self):
+        self.project = Project.objects.create(slug='testproject')
+        for name in ['good', 'bad', 'active', 'pending']:
+            self.project.configurations.create(name=name)
+        self.commit = self.project.commits.create(branch='testbranch', vcs_id='testid')
+
+    def add_build(self, config, kwargs):
+        config = self.project.configurations.get(name=config)
+        config.builds.create(commit=self.commit, **kwargs)
+
+    def test_1(self):
+        now = datetime.now()
+        builds = [
+            ('active', {'started': now}),
+            ('good', {'started': now, 'finished': now, 'was_successful': True}),
+            ('bad', {'started': now, 'finished': now, 'was_successful': False}),
+            ('pending', {})
+        ]
+        random.shuffle(builds)
+        for config, kwargs in builds:
+            self.add_build(config, kwargs)
+        self.assertBuildList(['bad', 'good', 'active', 'pending'])
+
+    def test_no_vcs_id(self):
+        self.commit.vcs_id = None
+        self.commit.save()
+        self.test_1()
+
+    def assertBuildList(self, l):
+        html = self.client.get(self.url).content
+        dom = lxml.html.document_fromstring(html)
+        self.assertEqual([li.find('span').text for li in dom.findall('.//li')], l)
