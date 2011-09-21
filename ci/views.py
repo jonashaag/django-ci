@@ -13,8 +13,8 @@ def get_project_by_slug(slug):
     return get_object_or_404(Project, slug=slug)
 
 
-def build_hook(request, slug, hook_type):
-    project = get_project_by_slug(slug)
+def build_hook(request, project_slug, hook_type):
+    project = get_project_by_slug(project_slug)
     if hook_type not in BUILD_HOOKS:
         raise Http404
     hook = BUILD_HOOKS[hook_type](request)

@@ -30,14 +30,14 @@ class BuildHookTests(BaseTestCase):
         self.assertEqual(response.status_code, 404)
 
     def test_project_404(self):
-        self.assert404(self.client.get('/ci/no-such-project/buildhook/somehook/'))
+        self.assert404(self.client.get('/ci/no-such-project/buildhooks/somehook/'))
 
     def test_hook_404(self):
-        self.assert404(self.client.get('/ci/p1/buildhook/no-such-hook/'))
+        self.assert404(self.client.get('/ci/p1/buildhooks/no-such-hook/'))
 
     def test_hook(self):
         self.assertEqual(Commit.objects.count(), 0)
-        self.assertEqual(self.client.get('/ci/p1/buildhook/testhook/').status_code, 200)
+        self.assertEqual(self.client.get('/ci/p1/buildhooks/testhook/').status_code, 200)
         self.assertEqual(Commit.objects.count(), 1)
         self.assertEqual(Build.objects.count(), 2)
         self.assertTrue(Commit.objects.get().done)
@@ -49,7 +49,7 @@ class BuildHookTests(BaseTestCase):
                 return [default_branch, 'fail']
         BUILD_HOOKS['testhook'] = Hook
 
-        self.assertEqual(self.client.get('/ci/p1/buildhook/testhook/').status_code, 200)
+        self.assertEqual(self.client.get('/ci/p1/buildhooks/testhook/').status_code, 200)
         self.assertEqual(Commit.objects.count(), 2)
         self.assertEqual(Commit.objects.filter(done=False).count(), 0)
         self.assertEqual(Build.objects.count(), 4)
@@ -72,7 +72,7 @@ class BuildHookTests(BaseTestCase):
         config_1.branches = default_branch
         config_0.save()
         config_1.save()
-        self.assertEqual(self.client.get('/ci/p1/buildhook/testhook/').status_code, 200)
+        self.assertEqual(self.client.get('/ci/p1/buildhooks/testhook/').status_code, 200)
         self.assertEqual(Commit.objects.get(branch='fail').builds.get().configuration, config_0)
         self.assertEqual(Commit.objects.exclude(branch='fail').get().builds.get().configuration, config_1)
 
