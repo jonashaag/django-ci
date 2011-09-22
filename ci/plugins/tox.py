@@ -1,6 +1,6 @@
-from ci.plugins.base import Plugin, Builder
+from ci.plugins.base import Plugin, CommandBasedBuilder
 
-class ToxBuilder(Builder):
+class ToxBuilder(CommandBasedBuilder):
     cmd = ['tox']
 
 class ToxPlugin(Plugin):
