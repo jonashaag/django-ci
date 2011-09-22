@@ -102,7 +102,7 @@ class Commit(models.Model):
 
     @models.permalink
     def get_absolute_url(self):
-        return 'commit', (), {'slug': self.project.slug, 'pk': self.id}
+        return 'commit', (), {'project_slug': self.project.slug, 'pk': self.id}
 
     @property
     def short_vcs_id(self):
