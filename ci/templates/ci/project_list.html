@@ -1,3 +1,5 @@
+{% extends 'base.html' %}
+{% block content %}
 {% for project, finished_count, failed_count, active_builds, pending_builds in projects %}
   {% if failed_count %}
     <div class="project failed">
@@ -20,3 +22,4 @@
   {% include 'ci/unfinished_builds.inc.html' %}
   </div>
 {% endfor %}
+{% endblock %}
