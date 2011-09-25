@@ -35,7 +35,7 @@ class BaseBuilderTests(BasePluginTest):
         self.builder.should_fail = True
         self._test_build(success=False)
 
-class CommandBasedBuilderTests(BasePluginTest):
+class CommandBasedBuilderTests(BaseBuilderTests):
     commits = [{'message': 'Added build script',
                 'added': {'build.sh': 'echo error >&2; echo output; test ! -e should_fail'}}]
 
@@ -44,13 +44,9 @@ class CommandBasedBuilderTests(BasePluginTest):
         self.builder = BuildDotShBuilder(self.build)
 
     def _test_build(self, success):
-        self.builder.execute_build()
-        self.assertEqual(self.build.was_successful, success)
+        super(CommandBasedBuilderTests, self)._test_build(success)
         self.assertEqual(self.build.stdout.open().read(), 'output\n')
         self.assertEqual(self.build.stderr.open().read(), 'error\n')
-
-    def test_successful_build(self):
-        self._test_build(success=True)
 
     def test_failing_build(self):
         self.commit({'message': 'Broke the build', 'added': {'should_fail': ''}})

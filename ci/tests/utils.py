@@ -14,7 +14,7 @@ class BuildDotShBuilder(CommandBasedBuilder):
     cmd = ['sh', 'build.sh']
 
 class BaseTestCase(TestCase):
-    commits = [{'message': 'Empty initial commit'}]
+    commits = [{'message': "Empty initial commit"}]
 
     def setUp(self):
         self.repo_path = mkdtemp()
@@ -37,7 +37,7 @@ class BaseTestCase(TestCase):
                 stage.add(FileNode(name, content))
             for name, content in commit.pop('changed', {}).items():
                 stage.change(FileNode(name, content))
-            commit.setdefault('author', 'Tim Tester')
+            commit.setdefault('author', "Tim Tester")
             commit.setdefault('message', "dummy message\n\nwith multiple lines")
             stage.commit(**commit)
 

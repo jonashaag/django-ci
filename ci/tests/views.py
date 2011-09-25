@@ -94,7 +94,8 @@ class OverviewTests(TestCase):
         p2 = Project.objects.create(name='p2', slug='p2')
         foo1 = p2.commits.create(branch='foo', vcs_id='foo1')
         bar1 = p2.commits.create(branch='bar', vcs_id='bar1')
-        self.add_build(foo1, done=False)
+        self.add_build(foo1, started=False)
+        self.add_build(bar1, done=False)
         self.add_build(foo1, done=True, success=False)
         self.add_build(bar1, done=True, success=True)
 
