@@ -38,7 +38,7 @@ class BaseTestCase(TestCase):
             for name, content in commit.pop('changed', {}).items():
                 stage.change(FileNode(name, content))
             commit.setdefault('author', 'Tim Tester')
-            commit.setdefault('message', 'dummy message')
+            commit.setdefault('message', "dummy message\n\nwith multiple lines")
             stage.commit(**commit)
 
     def tearDown(self):

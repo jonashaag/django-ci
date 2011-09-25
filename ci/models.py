@@ -95,6 +95,7 @@ class Commit(models.Model):
     project = models.ForeignKey(Project, related_name='commits')
     vcs_id = models.CharField(max_length=SHA1_LEN, blank=True, null=True)
     branch = models.CharField(max_length=100)
+    short_message = models.CharField(max_length=100)
     done = models.BooleanField()
 
     class Meta:

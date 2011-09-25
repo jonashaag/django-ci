@@ -47,9 +47,12 @@ class Builder(object):
             update_after_clone=True
         )
         self.repo.workdir.checkout_branch(self.build.commit.branch)
-        if self.build.commit.vcs_id is None:
-            self.build.commit.vcs_id = self.repo.workdir.get_changeset().raw_id
-            self.build.commit.save()
+        commit = self.build.commit
+        if commit.vcs_id is None:
+            changeset = self.repo.workdir.get_changeset()
+            commit.vcs_id = changeset.raw_id
+            commit.short_message = changeset.message.splitlines()[0]
+            commit.save()
 
     def teardown_build(self):
         rmtree(self.repo_path)

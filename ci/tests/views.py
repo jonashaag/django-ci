@@ -55,12 +55,14 @@ class BuildHookTests(BaseTestCase):
         self.assertEqual(Build.objects.count(), 4)
 
         failed_commit = Commit.objects.get(branch='fail')
+        self.assertEqual(failed_commit.short_message, 'dummy message')
         self.assertNotEqual(failed_commit.vcs_id, None)
         failed_builds = failed_commit.builds.all()
         self.assertEqual(failed_builds.count(), 2)
         self.assertEqual([b.was_successful for b in failed_builds], [False, False])
 
         successful_commit = Commit.objects.exclude(branch='fail').get()
+        self.assertEqual(failed_commit.short_message, 'dummy message')
         self.assertNotEqual(successful_commit.vcs_id, None)
         successful_builds = successful_commit.builds.all()
         self.assertEqual(successful_builds.count(), 2)
