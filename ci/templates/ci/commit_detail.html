@@ -27,8 +27,12 @@
         {% if build.done %}
           <span title="until {{ build.finished }}">took {{ build.duration }}</span>
           <span>
-            <a href={{ build.stdout.url }}>stdout</a>,
-            <a href={{ build.stderr.url }}>stderr</a>
+            {% if build.stdout %}
+              <a href={{ build.stdout.url }}>stdout</a>,
+            {% endif %}
+            {% if build.stderr %}
+              <a href={{ build.stderr.url }}>stderr</a>
+            {% endif %}
           </span>
         {% endif %}
       </span>

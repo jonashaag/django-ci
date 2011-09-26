@@ -281,11 +281,6 @@ class CommitDetailsTests(TestCase):
             self.add_build(config, kwargs)
         self.assertBuildList(['bad', 'good', 'active', 'pending'])
 
-    def test_no_vcs_id(self):
-        self.commit.vcs_id = None
-        self.commit.save()
-        self.test_1()
-
     def assertBuildList(self, l):
         html = self.client.get(self.url).content
         dom = lxml.html.document_fromstring(html)

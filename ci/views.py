@@ -76,6 +76,7 @@ class CommitDetails(DetailView):
 
     def get_context_data(self, **kwargs):
         context = super(CommitDetails, self).get_context_data(**kwargs)
+        assert context['object'].vcs_id
         context['builds'] = self.get_builds_grouped_by_state()
         return context
 
