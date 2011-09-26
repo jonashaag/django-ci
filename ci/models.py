@@ -39,6 +39,9 @@ class Project(models.Model):
     def builds(self):
         return Build.objects.filter(commit__project=self)
 
+    def __unicode__(self):
+        return self.name
+
     @models.permalink
     def get_absolute_url(self):
         return 'project', (), {'slug': self.slug}
@@ -86,6 +89,9 @@ class BuildConfiguration(models.Model):
     builder = models.CharField(choices=make_choice_list(BUILDERS), max_length=20)
     branches = StringListField(blank=True, null=True, max_length=500)
 
+    def __unicode__(self):
+        return '%s: %s (%s)' % (self.project, self.name, self.builder)
+
     def should_build_branch(self, branch):
         return not self.branches or branch in self.branches
 
@@ -100,6 +106,9 @@ class Commit(models.Model):
 
     class Meta:
         ordering = ['-created']
+
+    def __unicode__(self):
+        return '/'.join([self.branch, self.vcs_id])
 
     @models.permalink
     def get_absolute_url(self):
@@ -123,8 +132,8 @@ class Commit(models.Model):
 class Build(models.Model):
     configuration = models.ForeignKey(BuildConfiguration, related_name='builds')
     commit = models.ForeignKey(Commit, related_name='builds')
-    started = models.DateTimeField(null=True)
-    finished = models.DateTimeField(null=True)
+    started = models.DateTimeField(null=True, blank=True)
+    finished = models.DateTimeField(null=True, blank=True)
     was_successful = models.NullBooleanField()
     stdout = models.FileField(upload_to=make_build_log_filename)
     stderr = models.FileField(upload_to=make_build_log_filename)
