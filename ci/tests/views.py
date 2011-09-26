@@ -22,6 +22,7 @@ class BuildHookTests(BaseTestCase):
         self.project.configurations.create(builder='sh')
 
     def tearDown(self):
+        super(BuildHookTests, self).tearDown()
         del BUILDERS['sh']
         #if 'testhook' in BUILD_HOOKS:
         del BUILD_HOOKS['testhook']
