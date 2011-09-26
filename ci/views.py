@@ -36,10 +36,14 @@ class ProjectList(ListView):
         context['projects'] = projects = []
         for project in self.object_list:
             finished_builds = list(project.get_latest_branch_builds())
+            failed_builds = filter(lambda b: not b.was_successful, finished_builds)
+            state = 'unknown' if not finished_builds else \
+                        ('failed' if failed_builds else 'successful')
             projects.append([
                 project,
+                state,
                 len(finished_builds),
-                len(filter(lambda b: not b.was_successful, finished_builds)),
+                len(failed_builds),
                 project.get_active_builds(),
                 project.get_pending_builds(),
             ])

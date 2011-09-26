@@ -1,9 +1,38 @@
-{% extends 'base.html' %}
+{% extends 'ci/base.html' %}
+
+{% load ci %}
+
+{% block breadcrumbs %}
+{{ block.super }}
+{% include 'ci/breadcrumb.inc.html' with text=commit.project.name href=commit.project %}
+{% include 'ci/breadcrumb.inc.html' with text=commit.branch %}
+{% include 'ci/breadcrumb.inc.html' with text=commit.vcs_id href=commit %}
+{% endblock %}
+
+{% block h1 %}"{{ commit.short_message }}"{% endblock %}
+
 {% block content %}
-<ul>
+<div>{{ commit.created }}</div>
+<ul class=buildlist>
 {% for state, builds in builds.iteritems %}
   {% for build in builds %}
-    <li><span class="build {{ state }}">{{ build.configuration.name }}</span></li>
+    <li>
+      <span class="build {{ state }}">{{ build.configuration.name }}</span>
+      <span class=build-info>
+        {% if build.pending %}
+          <span>pending</span>
+        {% else %}
+          <span>started {{ build.started }}</span>
+        {% endif %}
+        {% if build.done %}
+          <span title="until {{ build.finished }}">took {{ build.duration }}</span>
+          <span>
+            <a href={{ build.stdout.url }}>stdout</a>,
+            <a href={{ build.stderr.url }}>stderr</a>
+          </span>
+        {% endif %}
+      </span>
+    </li>
   {% endfor %}
 {% endfor %}
 </ul>

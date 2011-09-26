@@ -1,14 +1,21 @@
-{% extends 'base.html' %}
-{% block content %}
+{% extends 'ci/base.html' %}
 {% load ci %}
-{% with active_builds=project.get_active_builds pending_builds=project.get_pending_builds %}
-  {% include 'ci/unfinished_builds.inc.html' %}
-{% endwith %}
-<ul>
+
+{% block breadcrumbs %}
+{{ block.super }}
+{% include 'ci/breadcrumb.inc.html' with text=project.name href=project %}
+{% endblock %}
+
+{% block h1 %}{{ project.name }}{% endblock %}
+
+{% block content %}
+<ul class=branchlist>
 {% for commit, builds, active_builds, pending_builds in commits %}
   <li>
-    {% commit_link commit %}
-    {% include 'ci/unfinished_builds.inc.html' %}
+    <div class=branch-info>
+      {% commit_link commit %}
+      {% include 'ci/unfinished_builds.inc.html' %}
+    </div>
     <ul>
     {% for build in builds %}
       <li>

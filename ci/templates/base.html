@@ -1,7 +1,15 @@
 <!doctype html>
 
-{% load staticfiles %}
-<link rel=css href={% static "css/ci.css" %}>
+{% block head %}
+{% endblock %}
 
+<header>
+  {% block breadcrumbs %}
+  {% endblock %}
+</header>
+
+<h1>{% block h1 %}{% endblock %}</h1>
+<div id=content>
 {% block content %}
 {% endblock %}
+</div>

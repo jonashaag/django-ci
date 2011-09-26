@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+
+{% load url from future %}
+{% load staticfiles %}
+
+{% block head %}
+<link rel=stylesheet href={% static "css/ci.css" %}>
+{% endblock %}
+
+{% block breadcrumbs %}
+  {% url "overview" as href %}
+  {% include 'ci/breadcrumb.inc.html' with text="powered by django-ci" href="https://github.com/jonashaag/django-ci" %}
+  {% include 'ci/breadcrumb.inc.html' with text=current_site.name %}
+{% endblock %}

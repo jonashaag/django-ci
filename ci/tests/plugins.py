@@ -23,7 +23,8 @@ class BasePluginTest(BaseTestCase):
 class BaseBuilderTests(BasePluginTest):
     def _test_build(self, success):
         self.builder.execute_build()
-        self.assertEqual(self.build.commit.vcs_id, self.repo.get_changeset().raw_id)
+        changeset = self.repo.get_changeset()
+        self.assertEqual(self.build.commit.vcs_id, changeset.raw_id)
         self.assertNotEqual(self.build.started, None)
         self.assertNotEqual(self.build.finished, None)
         self.assertEqual(self.build.was_successful, success)

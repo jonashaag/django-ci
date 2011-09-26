@@ -112,8 +112,11 @@ class OverviewTests(TestCase):
 
     def _test_base(self, state, state_text):
         response = self.client.get(self.url)
+        html = response.content
+        content_start = html.find('<div id=content>')
+        first_project_end = html.find('</a>', content_start)
+        response.content = html[content_start:first_project_end]
         self.assertEqual(response.status_code, 200)
-        response.content = response.content[:response.content.find('</div>')]
         self.assertContains(response, '/ci/p1/')
         self.assertContains(response, 'class="project %s"' % state)
         self.assertContains(response, state_text)
@@ -121,61 +124,61 @@ class OverviewTests(TestCase):
 
     def _test_no_pending(self, *args):
         response = self._test_base(*args)
-        self.assertNotContains(response, "Currently executing")
+        self.assertNotContains(response, "active")
         self.assertNotContains(response, "pending")
 
     def test_no_commits(self):
         Commit.objects.all().delete()
-        self._test_no_pending('unknown', "No builds")
+        self._test_no_pending('unknown', "no builds")
 
     def test_success(self):
-        self._test_no_pending('successful', "State: all builds successful")
+        self._test_no_pending('successful', "all builds successful")
 
     def test_failure(self):
         Build.objects.filter(commit__branch='b1').update(was_successful=False)
-        self._test_no_pending('failed', "State: 2/3 build(s) failed")
+        self._test_no_pending('failed', "failures: 2/3")
 
     def test_important_branches(self):
         b3c1 = self.project.commits.create(branch='b3', vcs_id='c1', done=True)
         self.add_build(b3c1, done=True, success=False)
-        self._test_no_pending('failed', "State: 1/4 build(s) failed")
+        self._test_no_pending('failed', "failures: 1/4")
         self.project.important_branches = 'b1, b2, doesnotexist'
         self.project.save()
-        self._test_no_pending('successful', "State: all builds successful")
+        self._test_no_pending('successful', "all builds successful")
         self.project.important_branches = 'b3'
         self.project.save()
-        self._test_no_pending('failed', "State: 1/1 build(s) failed")
+        self._test_no_pending('failed', "failures: 1/1")
 
     def test_with_active(self):
         active = self.project.commits.create(vcs_id='c2', branch='b2')
         self.add_build(active, done=False)
-        response = self._test_base('successful', "State: all builds successful")
-        self.assertContains(response, "Currently executing 1 build(s)")
+        response = self._test_base('successful', "all builds successful")
+        self.assertContains(response, "active: 1")
         self.assertNotContains(response, 'pending')
         self.add_build(active, done=False)
-        response = self._test_base('successful', "State: all builds successful")
-        self.assertContains(response, "Currently executing 2 build(s)")
+        response = self._test_base('successful', "all builds successful")
+        self.assertContains(response, "active: 2")
 
         pending = self.project.commits.create(branch='c3')
         self.add_build(pending, started=False)
         Build.objects.filter(was_successful=True).update(was_successful=False)
-        response = self._test_base('failed', "State: 3/3 build(s) failed")
-        self.assertContains(response, "Currently executing 2 build(s)")
-        self.assertContains(response, "plus 1 more build(s) pending")
+        response = self._test_base('failed', "failures: 3/3")
+        self.assertContains(response, "active: 2")
+        self.assertContains(response, "pending: 1")
         self.add_build(pending, started=False)
-        response = self._test_base('failed', "State: 3/3 build(s) failed")
-        self.assertContains(response, "Currently executing 2 build(s)")
-        self.assertContains(response, "plus 2 more build(s) pending")
+        response = self._test_base('failed', "failures: 3/3")
+        self.assertContains(response, "active: 2")
+        self.assertContains(response, "pending: 2")
 
     def test_with_pending(self):
         pending = self.project.commits.create(branch='c3')
         self.add_build(pending, started=False)
-        response = self._test_base('successful', "State: all builds successful")
-        self.assertNotContains(response, "Currently executing")
-        self.assertContains(response, "1 pending build(s)")
+        response = self._test_base('successful', "all builds successful")
+        self.assertNotContains(response, "active")
+        self.assertContains(response, "pending: 1")
         self.add_build(pending, started=False)
-        response = self._test_base('successful', "State: all builds successful")
-        self.assertContains(response, "2 pending build(s)")
+        response = self._test_base('successful', "all builds successful")
+        self.assertContains(response, "pending: 2")
 
 
 class ProjectDetailsTests(TestCase):
@@ -219,7 +222,7 @@ class ProjectDetailsTests(TestCase):
         dom = lxml.html.document_fromstring(html)
         branch_list = []
         for li in dom.find('.//ul').getchildren():
-            branch, commit = [span.text.strip() for span in li.find('a').findall('span')]
+            branch, commit = [span.text.strip() for span in li.find('.//a').findall('span')]
             builds = [li2.find('span') for li2 in li.find('ul').getchildren()]
             builds = [(b.text.strip(), b.attrib['class'].split()[1]) for b in builds]
             branch_list.append((branch, commit, builds))
@@ -243,13 +246,13 @@ class ProjectDetailsTests(TestCase):
         self.assertBranchList(self.branch_list)
 
         response = self.client.get(self.url)
-        self.assertContains(response, 'Currently executing 1 build(s)')
-        self.assertNotContains(response, 'pending')
+        self.assertContains(response, "active: 1")
+        self.assertNotContains(response, "pending")
         active.builds.create(configuration_id=-2)
 
         response = self.client.get(self.url)
-        self.assertContains(response, 'Currently executing 1 build(s)')
-        self.assertContains(response, '(plus 1 more build(s) pending)')
+        self.assertContains(response, "active: 1")
+        self.assertContains(response, "pending: 1")
 
 
 class CommitDetailsTests(TestCase):

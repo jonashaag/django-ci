@@ -1,25 +1,23 @@
-{% extends 'base.html' %}
-{% block content %}
-{% for project, finished_count, failed_count, active_builds, pending_builds in projects %}
-  {% if failed_count %}
-    <div class="project failed">
-      <a href="{{ project.get_absolute_url }}" class=name>{{ project.name }}</a>
-      <span class=build-info>
-        State: {{ failed_count }}/{{ finished_count }} build(s) failed
-      </span>
-  {% else %}
-    {% if finished_count %}
-      <div class="project successful">
-        <a href="{{ project.get_absolute_url }}" class=name>{{ project.name }}</a>
-        <span class=build-info>State: all builds successful</span>
-    {% else %}
-      <div class="project unknown">
-        <a href="{{ project.get_absolute_url }}" class=name>{{ project.name }}</a>
-        <span class=build-info>No builds</span>
-    {% endif %}
-  {% endif %}
+{% extends 'ci/base.html' %}
 
-  {% include 'ci/unfinished_builds.inc.html' %}
-  </div>
+{% block content %}
+<div id=project-list>
+{% for project, state, finished_count, failed_count, active_builds, pending_builds in projects %}
+  <a class="project {{ state }}" href="{{ project.get_absolute_url }}">
+    <span class=name>{{ project.name }}</span>
+    {% if failed_count %}
+      <span class=build-info>
+        failures: {{ failed_count }}/{{ finished_count }}
+      </span>
+    {% else %}
+      {% if finished_count %}
+        <span class=build-info>all builds successful</span>
+      {% else %}
+        <span class=build-info>no builds</span>
+      {% endif %}
+    {% endif %}
+    {% include 'ci/unfinished_builds.inc.html' %}
+  </a>
 {% endfor %}
+</div>
 {% endblock %}

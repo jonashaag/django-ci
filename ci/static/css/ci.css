@@ -1,0 +1,71 @@
+/* Base */
+body { color: #202944; margin: 0; font-size: 14px; }
+a { color: inherit; text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+
+/* Header */
+header {
+  font-size: 12px;
+  background-color: #455372;
+  color: #E5E5E5;
+  overflow: auto;
+}
+header a { float: right; padding: 7px 10px; }
+header a:hover { text-decoration: none; }
+header a:hover > span { text-decoration: underline; }
+header a + a { float: left; padding: 7px 0 7px 10px; }
+header a + a + a:before { content: "»"; position: relative; left: -5px; }
+
+
+/* Content/wrapper */
+#content { margin: 0 10%; }
+h1 { margin: 20px 5%; text-align: center; }
+.successful { color: #2A8E1C; }
+.failed { color: #BD2C00; }
+.active { color: #555; }
+.pending { color: #777; }
+
+
+/* Project overview site */
+/* TODO: Center this */
+#project-list { margin: 0 -10%; }
+.project {
+  width: 300px;
+  height: 90px;
+  margin: 10px;
+  border: 1px solid #aaa; border-radius: 4px;
+  padding: 10px 15px;
+  float: left;
+}
+.project:hover {
+  background-color: #fdfdfc;
+  -webkit-box-shadow: 0px 0px 10px -4px #455372;
+  text-decoration: none;
+}
+.project .name { font-size: 24px; display: block; margin-bottom: 5px; }
+
+.project.failed { border-color: #e28888; background-color: #fffcf5; }
+.project.successful { border-color: #9DCE5C; background-color: #f5ffd5; }
+
+.build-info { font-size: 12px; color: #586073; }
+.build-info + .build-info:before { content: "·"; margin: 0 5px; }
+
+
+/* Project detail site */
+.branchlist { list-style-type: none; padding-left: 0; }
+.branchlist > li { clear: both; float: left; margin-top: 20px; }
+.branchlist .branch-info { float: left; }
+.branchlist .branch-info .branch-commit { display: block; }
+.branchlist ul { float: left; list-style-type: none; padding-left: 30px; }
+.branchlist ul > li { float: left; font-size: 20px; }
+
+.branch-commit { font-size: 22px; }
+
+
+/* Commit detail site */
+.buildlist { list-style-type: none; padding-left: 0; }
+.buildlist > li { font-size: 20px; }
+.buildlist .build-info span + span:before { content: "·"; margin: 0 5px; }
+
+/* TODO: stderr/stdin icon */

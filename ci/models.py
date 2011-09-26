@@ -157,3 +157,7 @@ class Build(models.Model):
     @property
     def active(self):
         return not self.pending and not self.done
+
+    @property
+    def duration(self):
+        return self.finished - self.started
