@@ -11,7 +11,7 @@ def load_plugins():
         BUILDERS.update(plugin.get_builders())
         BUILD_HOOKS.update(plugin.get_build_hooks())
 
-from . import defaultplugin
+from . import defaultplugin, github
 if settings.DEBUG:
     from ci.plugins import debug
 load_plugins()
