@@ -49,8 +49,8 @@ class CommandBasedBuilderTests(BaseBuilderTests):
 
     def _test_build(self, success):
         super(CommandBasedBuilderTests, self)._test_build(success)
-        self.assertEqual(self.build.stdout.open().read(), 'output\n')
-        self.assertEqual(self.build.stderr.open().read(), 'error\n')
+        self.assertEqual(self.build.stdout.read(), 'output\n')
+        self.assertEqual(self.build.stderr.read(), 'error\n')
 
     def break_build(self):
         self.commit({'message': "Broke the build", 'added': {'should_fail': ''}})
