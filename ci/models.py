@@ -8,6 +8,7 @@ from django.db.utils import IntegrityError
 from ci.utils import make_choice_list
 from ci.plugins import BUILDERS
 
+VCS_CHOICES = make_choice_list(['git', 'hg'])
 SHA1_LEN = 40
 
 def make_build_log_filename(build, filename):
@@ -30,8 +31,7 @@ class StringListField(models.CharField):
 class Project(models.Model):
     name = models.CharField(max_length=100, unique=True)
     slug = models.SlugField(max_length=100, unique=True)
-    vcs_type = models.CharField('VCS type', choices=make_choice_list(vcs.BACKENDS),
-                                max_length=10)
+    vcs_type = models.CharField('VCS type', choices=VCS_CHOICES, max_length=10)
     repo_uri = models.CharField('Repository URI', max_length=500)
     important_branches = StringListField(blank=True, null=True, max_length=500)
 
