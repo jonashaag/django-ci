@@ -109,7 +109,7 @@ class Commit(models.Model):
         ordering = ['-created']
 
     def __unicode__(self):
-        return '/'.join([self.branch, self.vcs_id])
+        return '/'.join([self.branch, self.vcs_id or '(unknown)'])
 
     @models.permalink
     def get_absolute_url(self):
