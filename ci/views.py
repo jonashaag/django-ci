@@ -3,6 +3,7 @@ from collections import OrderedDict
 from django.http import HttpResponse, Http404
 from django.shortcuts import render, get_object_or_404
 from django.views.generic import ListView, DetailView
+from django.views.decorators.csrf import csrf_exempt
 
 from ci.models import Project, Commit
 from ci.plugins import BUILD_HOOKS
@@ -13,6 +14,7 @@ def get_project_by_slug(slug):
     return get_object_or_404(Project, slug=slug)
 
 
+@csrf_exempt
 def build_hook(request, project_slug, hook_type):
     project = get_project_by_slug(project_slug)
     if hook_type not in BUILD_HOOKS:
