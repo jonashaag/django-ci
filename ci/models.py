@@ -88,6 +88,7 @@ class BuildConfiguration(models.Model):
     project = models.ForeignKey(Project, related_name='configurations')
     builder = models.CharField(choices=make_choice_list(BUILDERS), max_length=20)
     branches = StringListField(blank=True, null=True, max_length=500)
+    parameters = models.TextField(null=True)
 
     def __unicode__(self):
         return '%s: %s (%s)' % (self.project, self.name, self.builder)
