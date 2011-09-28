@@ -13,12 +13,14 @@ class SimpleBuilder(Builder):
 
 
 class BasePluginTest(BaseTestCase):
+    builder = SimpleBuilder
+
     def setUp(self):
         super(BasePluginTest, self).setUp()
-        config = self.project.configurations.create()
+        self.config = self.project.configurations.create()
         commit = self.project.commits.create(branch=default_branch)
-        self.build = commit.builds.create(configuration=config)
-        self.builder = SimpleBuilder(self.build)
+        self.build = commit.builds.create(configuration=self.config)
+        self.builder = self.__class__.builder(self.build)
 
 class BaseBuilderTests(BasePluginTest):
     def _test_build(self, success):
@@ -33,22 +35,22 @@ class BaseBuilderTests(BasePluginTest):
         self._test_build(success=True)
 
     def test_failing_build(self):
-        self.builder.should_fail = True
+        self.break_build()
         self._test_build(success=False)
 
-class CommandBasedBuilderTests(BaseBuilderTests):
-    commits = [{'message': 'Added build script',
-                'added': {'build.sh': 'echo error >&2; echo output; test ! -e should_fail'}}]
+    def break_build(self):
+        self.builder.should_fail = True
 
-    def setUp(self):
-        super(CommandBasedBuilderTests, self).setUp()
-        self.builder = BuildDotShBuilder(self.build)
+class CommandBasedBuilderTests(BaseBuilderTests):
+    builder = BuildDotShBuilder
+    build_script = "echo error >&2; echo output; test ! -e should_fail"
+    commits = [{'message': "Added build script",
+                'added': {'build.sh': build_script}}]
 
     def _test_build(self, success):
         super(CommandBasedBuilderTests, self)._test_build(success)
         self.assertEqual(self.build.stdout.open().read(), 'output\n')
         self.assertEqual(self.build.stderr.open().read(), 'error\n')
 
-    def test_failing_build(self):
-        self.commit({'message': 'Broke the build', 'added': {'should_fail': ''}})
-        self._test_build(success=False)
+    def break_build(self):
+        self.commit({'message': "Broke the build", 'added': {'should_fail': ''}})
