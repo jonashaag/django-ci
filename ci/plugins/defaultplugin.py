@@ -1,0 +1,11 @@
+import os
+from ci.plugins import Plugin, CommandBasedBuilder
+
+class ShellBuilder(CommandBasedBuilder):
+    def get_cmd(self):
+        return [os.environ.get('SHELL', '/bin/sh'), '-c',
+                self.build.configuration.parameters]
+
+class DefaultPlugin(Plugin):
+    def get_builders(self):
+        return {'shell': ShellBuilder}

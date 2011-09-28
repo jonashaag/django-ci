@@ -1,5 +1,6 @@
-from ci.plugins.base import Builder
 from ci.utils import BuildFailed
+from ci.plugins.base import Builder
+from ci.plugins.defaultplugin import ShellBuilder
 from ci.tests.utils import BaseTestCase, BuildDotShBuilder, default_branch
 
 class SimpleBuilder(Builder):
@@ -54,3 +55,12 @@ class CommandBasedBuilderTests(BaseBuilderTests):
 
     def break_build(self):
         self.commit({'message': "Broke the build", 'added': {'should_fail': ''}})
+
+
+class ShellBuilderTests(CommandBasedBuilderTests):
+    builder = ShellBuilder
+
+    def setUp(self):
+        super(ShellBuilderTests, self).setUp()
+        self.config.parameters = self.build_script
+        self.config.save()
