@@ -1,6 +1,6 @@
 from django.conf import settings
 from ci.utils import get_subclasses
-from ci.plugins.base import Plugin
+from ci.plugins.base import *
 
 BUILDERS = {}
 BUILD_HOOKS = {}

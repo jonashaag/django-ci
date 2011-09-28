@@ -6,6 +6,8 @@ from shutil import rmtree
 from django.core.files.base import ContentFile
 from ci.utils import BuildFailed
 
+__all__ = ['Plugin', 'BuildHook', 'Builder', 'CommandBasedBuilder']
+
 class Plugin(object):
     def get_builders(self):
         return {}

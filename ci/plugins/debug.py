@@ -1,4 +1,4 @@
-from ci.plugins.base import Plugin, BuildHook
+from ci.plugins import Plugin, BuildHook
 
 class DebugBuildHook(BuildHook):
     def get_changed_branches(self):
