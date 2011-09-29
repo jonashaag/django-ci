@@ -8,5 +8,4 @@ Requirements
 * Django >= 1.4 (use Git version until released)
 * vcs >= 2.0.1
 * django-celery >= 2.4.0 (use Git version until release)
-* django-kombu
 * dulwich for Git and/or Mercurial
