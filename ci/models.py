@@ -5,6 +5,7 @@ import vcs
 from django.db import models
 from django.db.utils import IntegrityError
 
+from ci.fields import StringListField, NamedFileField
 from ci.utils import make_choice_list
 from ci.plugins import BUILDERS
 
@@ -13,20 +14,6 @@ SHA1_LEN = 40
 
 def make_build_log_filename(build, filename):
     return os.path.join('builds', str(build.id), filename)
-
-class StringListField(models.CharField):
-    __metaclass__ = models.SubfieldBase
-
-    def to_python(self, value):
-        if value and not isinstance(value, list):
-            value = filter(None, [s.strip() for s in value.split(',')])
-        return value
-
-    def get_prep_value(self, value):
-        if value:
-            value = ','.join(value)
-        return value
-
 
 class Project(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -136,8 +123,8 @@ class Build(models.Model):
     started = models.DateTimeField(null=True, blank=True)
     finished = models.DateTimeField(null=True, blank=True)
     was_successful = models.NullBooleanField()
-    stdout = models.FileField(upload_to=make_build_log_filename)
-    stderr = models.FileField(upload_to=make_build_log_filename)
+    stdout = NamedFileField('stdout.txt', upload_to=make_build_log_filename)
+    stderr = NamedFileField('stderr.txt', upload_to=make_build_log_filename)
 
     class Meta:
         unique_together = ['configuration', 'commit']
