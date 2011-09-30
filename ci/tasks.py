@@ -6,9 +6,10 @@ from ci.plugins import BUILDERS
 def execute_build(build_id, builder):
     build = Build.objects.get(id=build_id)
     Builder = BUILDERS[builder]
-    Builder(build).execute_build()
-    build.save()
-    # XXX run this in a SELECT ... FOR UPDATE transaction
-    if not build.commit.builds.filter(was_successful=None).exists():
-        build.commit.done = True
-        build.commit.save()
+    try:
+        Builder(build).execute_build()
+    finally:
+        # XXX run this in a SELECT ... FOR UPDATE transaction
+        if not build.commit.builds.filter(was_successful=None).exists():
+            build.commit.done = True
+            build.commit.save()

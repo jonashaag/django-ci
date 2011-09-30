@@ -1,8 +1,10 @@
-from os import rmdir
+import os
+import shutil
+import tempfile
+import traceback
 from datetime import datetime
 from subprocess import Popen, PIPE
-from tempfile import mkdtemp
-from shutil import rmtree
+
 from django.core.files.base import ContentFile
 from ci.utils import BuildFailed
 
@@ -28,19 +30,31 @@ class Builder(object):
 
     def execute_build(self):
         self.build.started = datetime.now()
-        self.setup_build()
         try:
+            self.setup_build()
             self.run()
             self.build.was_successful = True
         except BuildFailed:
             self.build.was_successful = False
+        except:
+            self.build.was_successful = False
+            # XXX #16964
+            if not self.build.stderr:
+                self.build.stderr.save('', save=False)
+            self.build.stderr.file.close()
+            self.build.stderr.open('a')
+            self.build.stderr.write(self.format_exception())
+            self.build.stderr.close()
+            self.build.stderr.open()
+            raise
         finally:
             self.build.finished = datetime.now()
             self.teardown_build()
+            self.build.save()
 
     def setup_build(self):
-        self.repo_path = mkdtemp()
-        rmdir(self.repo_path)
+        self.repo_path = tempfile.mkdtemp()
+        os.rmdir(self.repo_path)
         Repository = self.build.configuration.project.get_vcs_backend()
         self.repo = Repository(
             self.repo_path,
@@ -57,7 +71,14 @@ class Builder(object):
             commit.save()
 
     def teardown_build(self):
-        rmtree(self.repo_path)
+        shutil.rmtree(self.repo_path)
+
+    def format_exception(self):
+        return '\n\n' + '\n\n'.join([
+            '=' * 79,
+            "Exception in django-ci/builder",
+            traceback.format_exc()
+        ])
 
     def run(self):
         raise NotImplementedError
