@@ -88,3 +88,10 @@ class CommandBasedBuilderTests(BaseBuilderTests):
 
     def break_build(self):
         self.commit({'message': "Broke the build", 'added': {'should_fail': ''}})
+
+    def test_tons_of_output(self):
+        # XXX use thread + timeout
+        self.commit({'changed': {'build.sh': 'yes hello | head -n 100000'}})
+        self.execute_build()
+        # use raw 'assert' here to avoid spamming the console in case of a failure
+        assert self.build.stdout.read() ==  'hello\n'*100000

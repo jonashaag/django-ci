@@ -88,9 +88,9 @@ class CommandBasedBuilder(Builder):
         cmd = self.get_cmd()
         # XXX directly pipe into files
         proc = Popen(cmd, cwd=self.repo_path, stdout=PIPE, stderr=PIPE)
-        proc.wait()
-        self.build.stderr.save(proc.stderr.read(), save=False)
-        self.build.stdout.save(proc.stdout.read(), save=False)
+        stdout, stderr = proc.communicate()
+        self.build.stderr.save(stderr, save=False)
+        self.build.stdout.save(stdout, save=False)
         if proc.returncode:
             raise BuildFailed("Command %s returned with code %d" % (cmd, proc.returncode))
 
