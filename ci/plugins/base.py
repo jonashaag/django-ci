@@ -50,7 +50,6 @@ class Builder(object):
         finally:
             self.build.finished = datetime.now()
             self.teardown_build()
-            self.build.save()
 
     def setup_build(self):
         self.repo_path = tempfile.mkdtemp()

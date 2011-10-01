@@ -9,6 +9,7 @@ def execute_build(build_id, builder):
     try:
         Builder(build).execute_build()
     finally:
+        build.save()
         # XXX run this in a SELECT ... FOR UPDATE transaction
         if not build.commit.builds.filter(was_successful=None).exists():
             build.commit.done = True

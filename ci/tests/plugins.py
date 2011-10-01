@@ -23,8 +23,11 @@ class BasePluginTest(BaseTestCase):
 class BaseBuilderTests(BasePluginTest):
     builder = SimpleBuilder
 
-    def _test_build(self, success):
+    def execute_build(self):
         self.builder.execute_build()
+
+    def _test_build(self, success):
+        self.execute_build()
         changeset = self.repo.get_changeset()
         self.assertEqual(self.build.commit.vcs_id, changeset.raw_id)
         self.assertNotEqual(self.build.started, None)
@@ -69,18 +72,18 @@ class BaseBuilderTests(BasePluginTest):
 
 class CommandBasedBuilderTests(BaseBuilderTests):
     builder = BuildDotShBuilder
-    build_script = "echo error >&2; echo output; test ! -e should_fail"
+    build_script = "echo -n error >&2; echo -n output; test ! -e should_fail"
     commits = [{'message': "Added build script",
                 'added': {'build.sh': build_script}}]
 
-    def _test_build(self, success):
+    def _test_build(self, success, stdout='output', stderr='error'):
         super(CommandBasedBuilderTests, self)._test_build(success)
-        self.assertEqual(self.build.stdout.read(), 'output\n')
-        self.assertEqual(self.build.stderr.read(), 'error\n')
+        self.assertEqual(self.build.stdout.read(), stdout)
+        self.assertEqual(self.build.stderr.read(), stderr)
 
     def _test_build_exception(self, exc):
         def stderr_hook():
-            self.assertEqual(self.build.stderr.read(len('error\n')), 'error\n')
+            self.assertEqual(self.build.stderr.read(len('error')), 'error')
         super(CommandBasedBuilderTests, self)._test_build_exception(exc, stderr_hook)
 
     def break_build(self):
