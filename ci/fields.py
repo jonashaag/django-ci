@@ -16,7 +16,7 @@ class StringListField(models.CharField):
 
 
 class NamedFieldFile(models.FileField.attr_class):
-    def save(self, content, **kwargs):
+    def save_named(self, content, **kwargs):
         if isinstance(content, basestring):
             content = ContentFile(content)
         return super(NamedFieldFile, self).save(self.field.filename, content, **kwargs)

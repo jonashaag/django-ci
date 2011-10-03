@@ -40,7 +40,7 @@ class Builder(object):
             self.build.was_successful = False
             # XXX #16964
             if not self.build.stderr:
-                self.build.stderr.save('', save=False)
+                self.build.stderr.save_named('', save=False)
             self.build.stderr.file.close()
             self.build.stderr.open('a')
             self.build.stderr.write(self.format_exception())
@@ -89,8 +89,8 @@ class CommandBasedBuilder(Builder):
         # XXX directly pipe into files
         proc = Popen(cmd, cwd=self.repo_path, stdout=PIPE, stderr=PIPE)
         stdout, stderr = proc.communicate()
-        self.build.stderr.save(stderr, save=False)
-        self.build.stdout.save(stdout, save=False)
+        self.build.stderr.save_named(stderr, save=False)
+        self.build.stdout.save_named(stdout, save=False)
         if proc.returncode:
             raise BuildFailed("Command %s returned with code %d" % (cmd, proc.returncode))
 
