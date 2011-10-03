@@ -54,7 +54,7 @@ class Project(models.Model):
             WHERE commit_id IN (
               SELECT id FROM (
                 SELECT * FROM ci_commit
-                WHERE project_id=%%s AND done %s
+                WHERE project_id=%%s AND was_successful IS NOT NULL %s
                 ORDER BY created
               )
               GROUP BY branch
@@ -68,6 +68,12 @@ class Project(models.Model):
 
     def get_pending_builds(self):
         return self.builds.filter(started__isnull=True)
+
+    def get_latest_stable_commit(self, branch):
+        try:
+            return self.commits.filter(was_successful=True, branch=branch)[0]
+        except IndexError:
+            return None
 
 
 class BuildConfiguration(models.Model):
@@ -90,7 +96,7 @@ class Commit(models.Model):
     vcs_id = models.CharField(max_length=SHA1_LEN, blank=True, null=True)
     branch = models.CharField(max_length=100)
     short_message = models.CharField(max_length=100)
-    done = models.BooleanField()
+    was_successful = models.NullBooleanField()
 
     class Meta:
         ordering = ['-created']

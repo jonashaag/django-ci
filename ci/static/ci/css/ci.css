@@ -54,11 +54,14 @@ h1 { margin: 20px 5%; text-align: center; }
 
 /* Project detail site */
 .branchlist { list-style-type: none; padding-left: 0; }
-.branchlist > li { clear: both; float: left; margin-top: 20px; }
+.branchlist > li { clear: both; float: left; margin: 20px 0; }
 .branchlist .branch-info { float: left; }
 .branchlist .branch-info .branch-commit { display: block; }
+.branchlist .build-info { font-size: 11px; }
 .branchlist ul { float: left; list-style-type: none; padding-left: 30px; }
-.branchlist ul > li { float: left; font-size: 20px; }
+.branchlist ul > li { float: left; font-size: 20px; padding-right: 10px; }
+.branchlist .stable { clear: both; font-size: 13px; color: #777; padding-top: 5px; padding-left: 30px; }
+.branchlist .stable .branch-commit { font-size: 18px; }
 
 .branch-commit { font-size: 22px; }
 

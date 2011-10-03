@@ -41,7 +41,7 @@ class BuildHookTests(BaseTestCase):
         self.assertEqual(self.client.get('/ci/p1/buildhooks/testhook/').status_code, 200)
         self.assertEqual(Commit.objects.count(), 1)
         self.assertEqual(Build.objects.count(), 2)
-        self.assertTrue(Commit.objects.get().done)
+        self.assertTrue(Commit.objects.get().was_successful)
 
     def test_hook_failing_build(self):
         self.commit({'changed': {'build.sh': 'exit 1'}, 'branch': 'fail'})
@@ -52,7 +52,7 @@ class BuildHookTests(BaseTestCase):
 
         self.assertEqual(self.client.get('/ci/p1/buildhooks/testhook/').status_code, 200)
         self.assertEqual(Commit.objects.count(), 2)
-        self.assertEqual(Commit.objects.filter(done=False).count(), 0)
+        self.assertEqual(Commit.objects.filter(was_successful=None).count(), 0)
         self.assertEqual(Build.objects.count(), 4)
 
         failed_commit = Commit.objects.get(branch='fail')
@@ -85,16 +85,16 @@ class OverviewTests(TestCase):
 
     def setUp(self):
         self.project = Project.objects.create(name='p1', slug='p1')
-        b1c1 = self.project.commits.create(vcs_id='c1', branch='b1', done=True)
-        b2c1 = self.project.commits.create(vcs_id='c1', branch='b2', done=True)
+        b1c1 = self.project.commits.create(vcs_id='c1', branch='b1', was_successful=True)
+        b2c1 = self.project.commits.create(vcs_id='c1', branch='b2', was_successful=True)
         for commit in [b1c1, b1c1, b2c1]:
             self.add_build(commit, done=True, success=True)
 
         # here to ensure that only builds/commits that belong to each project
         # are taken into account (rather than *all* builds/commits)
         p2 = Project.objects.create(name='p2', slug='p2')
-        foo1 = p2.commits.create(branch='foo', vcs_id='foo1')
-        bar1 = p2.commits.create(branch='bar', vcs_id='bar1')
+        foo1 = p2.commits.create(branch='foo', vcs_id='foo1', was_successful=False)
+        bar1 = p2.commits.create(branch='bar', vcs_id='bar1', was_successful=True)
         self.add_build(foo1, started=False)
         self.add_build(bar1, done=False)
         self.add_build(foo1, done=True, success=False)
@@ -140,7 +140,7 @@ class OverviewTests(TestCase):
         self._test_no_pending('failed', "failures: 2/3")
 
     def test_important_branches(self):
-        b3c1 = self.project.commits.create(branch='b3', vcs_id='c1', done=True)
+        b3c1 = self.project.commits.create(branch='b3', vcs_id='c1', was_successful=False)
         self.add_build(b3c1, done=True, success=False)
         self._test_no_pending('failed', "failures: 1/4")
         self.project.important_branches = 'b1, b2, doesnotexist'
@@ -194,43 +194,63 @@ class ProjectDetailsTests(TestCase):
             slug='my-super-cool-project',
             vcs_type=VCS
         )
-        tests = self.project.configurations.create(name='tests')
-        docs = self.project.configurations.create(name='docs', branches=[default_branch])
+        self.project.configurations.create(name='tests')
+        self.project.configurations.create(name='docs', branches=[default_branch])
 
-        d1 = self.project.commits.create(branch='dev', vcs_id='dev1', done=True)
-        m1 = self.project.commits.create(branch=default_branch, vcs_id='default1', done=True)
+        d1 = self.project.commits.create(branch='dev', vcs_id='dev1', was_successful=False)
+        m1 = self.project.commits.create(branch=default_branch, vcs_id='def1', was_successful=False)
 
         # default: docs built successfully but the tests failed
-        self.add_build(m1, tests, was_successful=False)
-        self.add_build(m1, docs, was_successful=True)
+        self.add_build(m1, 'tests', was_successful=False)
+        self.add_build(m1, 'docs', was_successful=True)
 
         # dev: tests failed
-        self.add_build(d1, tests, was_successful=False)
+        self.add_build(d1, 'tests', was_successful=False)
 
         self.branch_list = [
-            (default_branch, 'default', [('tests', 'failed'),
-                                         ('docs', 'successful')]),
-            ('dev', 'dev1', [('tests', 'failed')]),
+            (default_branch, {'latest': ('def1', [('tests', 'failed'), ('docs', 'successful')])}),
+            ('dev', {'latest': ('dev1', [('tests', 'failed')])}),
         ]
 
     def add_build(self, commit, config, **kwargs):
         kwargs.setdefault('started', datetime.now())
         kwargs.setdefault('finished', datetime.now())
+        config = self.project.configurations.get(name=config)
         return commit.builds.create(configuration=config, **kwargs)
 
     def assertBranchList(self, expected_branch_list):
         html = self.client.get(self.url).content
         dom = lxml.html.document_fromstring(html)
         branch_list = []
-        for li in dom.find('.//ul').getchildren():
-            branch, commit = [span.text.strip() for span in li.find('.//a').findall('span')]
-            builds = [li2.find('span') for li2 in li.find('ul').getchildren()]
-            builds = [(b.text.strip(), b.attrib['class'].split()[1]) for b in builds]
-            branch_list.append((branch, commit, builds))
-        self.assertEqual(branch_list, expected_branch_list)
+
+        for idx, node in enumerate(dom.find_class('latest')):
+            commits = {}
+            # Latest commit:
+            branch, latest_commit = [span.text.strip() for span in
+                                     node.find('.//a').findall('span')]
+            latest = [(b.text.strip(), b.attrib['class'].split()[1])
+                      for b in node.find_class('build')]
+            commits['latest'] = (latest_commit, latest)
+            # Latest stable commit:
+            stable = node.getnext()
+            if stable is not None:
+                commits['stable'] = stable.find_class('commit')[0].text.strip()
+            self.assertEqual(expected_branch_list[idx], (branch, commits))
 
     def test_1(self):
         self.assertBranchList(self.branch_list)
+        self.project.commits.filter(branch=default_branch).update(was_successful=True)
+        self.assertBranchList(self.branch_list)
+
+    def test_latest_stable(self):
+        # dev: tests succeeded
+        self.project.commits.filter(vcs_id='dev1').update(was_successful=True)
+        d2 = self.project.commits.create(branch='dev', vcs_id='dev2', was_successful=False)
+        self.add_build(d2, 'tests', was_successful=False)
+        self.assertBranchList([
+            self.branch_list[0],
+            ('dev', {'latest': ('dev2', [('tests', 'failed')]), 'stable': 'dev1'})
+        ])
 
     def test_important_branches(self):
         # if given, 'important_branches' specifies the branch order
@@ -242,7 +262,7 @@ class ProjectDetailsTests(TestCase):
         self.assertBranchList([self.branch_list[1]])
 
     def test_with_active_and_pending(self):
-        active = self.project.commits.create(branch=default_branch, vcs_id='active', done=False)
+        active = self.project.commits.create(branch=default_branch, vcs_id='active')
         active.builds.create(started=datetime.now(), configuration_id=-1)
         self.assertBranchList(self.branch_list)
 
