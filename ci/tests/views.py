@@ -242,7 +242,7 @@ class ProjectDetailsTests(TestCase):
         self.project.commits.filter(branch=default_branch).update(was_successful=True)
         self.assertBranchList(self.branch_list)
 
-    def test_latest_stable(self):
+    def test_last_stable(self):
         # dev: tests succeeded
         self.project.commits.filter(vcs_id='dev1').update(was_successful=True)
         d2 = self.project.commits.create(branch='dev', vcs_id='dev2', was_successful=False)

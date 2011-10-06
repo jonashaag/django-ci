@@ -10,7 +10,7 @@
 
 {% block content %}
 <ul class=branchlist>
-{% for commit, builds, active_builds, pending_builds, latest_stable_commit in commits %}
+{% for commit, builds, active_builds, pending_builds, last_stable_commit in commits %}
   <li>
     <div class=latest>
       <div class=branch-info>
@@ -28,10 +28,10 @@
       {% endfor %}
       </ul>
     </div>
-    {% if latest_stable_commit and latest_stable_commit != commit %}
+    {% if last_stable_commit and last_stable_commit != commit %}
       <div class=stable>
-        Latest successful build: {% commit_link latest_stable_commit %}
-        ({{ latest_stable_commit.created }})
+        Last successful build: {% commit_link last_stable_commit %}
+        ({{ last_stable_commit.created }})
       </div>
     {% endif %}
   </li>

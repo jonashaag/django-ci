@@ -70,8 +70,8 @@ class ProjectDetails(DetailView):
         for commit, builds in [branches.pop(b) for b in branch_order] + branches.values():
             active = commit.get_active_builds_for_branch()
             pending = commit.get_pending_builds_for_branch()
-            latest_stable = self.object.get_latest_stable_commit(commit.branch)
-            yield commit, builds, active, pending, latest_stable
+            last_stable = self.object.get_last_stable_commit(commit.branch)
+            yield commit, builds, active, pending, last_stable
 
 
 class CommitDetails(DetailView):

@@ -69,7 +69,7 @@ class Project(models.Model):
     def get_pending_builds(self):
         return self.builds.filter(started__isnull=True)
 
-    def get_latest_stable_commit(self, branch):
+    def get_last_stable_commit(self, branch):
         try:
             return self.commits.filter(was_successful=True, branch=branch)[0]
         except IndexError:
