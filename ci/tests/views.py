@@ -1,5 +1,5 @@
 import random
-import lxml.html
+from BeautifulSoup import BeautifulSoup
 from datetime import datetime
 from django.test import TestCase
 from ci.models import Project, Commit, Build
@@ -220,21 +220,21 @@ class ProjectDetailsTests(TestCase):
 
     def assertBranchList(self, expected_branch_list):
         html = self.client.get(self.url).content
-        dom = lxml.html.document_fromstring(html)
+        dom = BeautifulSoup(html)
         branch_list = []
 
-        for idx, node in enumerate(dom.find_class('latest')):
+        for idx, node in enumerate(dom.findAll(None, 'latest')):
             commits = {}
             # Latest commit:
             branch, latest_commit = [span.text.strip() for span in
-                                     node.find('.//a').findall('span')]
-            latest = [(b.text.strip(), b.attrib['class'].split()[1])
-                      for b in node.find_class('build')]
+                                     node.find('a').findAll('span')]
+            latest = [(b.text.strip(), b['class'].split()[1])
+                      for b in node.findAll(None, 'build')]
             commits['latest'] = (latest_commit, latest)
             # Latest stable commit:
-            stable = node.getnext()
+            stable = node.nextSibling.nextSibling
             if stable is not None:
-                commits['stable'] = stable.find_class('commit')[0].text.strip()
+                commits['stable'] = stable.findAll(None, 'commit')[0].text.strip()
             self.assertEqual(expected_branch_list[idx], (branch, commits))
 
     def test_1(self):
@@ -304,5 +304,5 @@ class CommitDetailsTests(TestCase):
 
     def assertBuildList(self, l):
         html = self.client.get(self.url).content
-        dom = lxml.html.document_fromstring(html)
-        self.assertEqual([li.find('span').text for li in dom.findall('.//li')], l)
+        dom = BeautifulSoup(html)
+        self.assertEqual([li.find('span').text for li in dom.findAll('li')], l)
