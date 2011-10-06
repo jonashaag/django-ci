@@ -2,7 +2,6 @@ import os
 import shutil
 import tempfile
 import traceback
-from datetime import datetime
 from subprocess import Popen, PIPE
 
 from django.core.files.base import ContentFile
@@ -29,7 +28,6 @@ class Builder(object):
         self.build = build
 
     def execute_build(self):
-        self.build.started = datetime.now()
         try:
             self.setup_build()
             self.run()
@@ -48,7 +46,6 @@ class Builder(object):
             self.build.stderr.open()
             raise
         finally:
-            self.build.finished = datetime.now()
             self.teardown_build()
 
     def setup_build(self):

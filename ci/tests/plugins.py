@@ -30,8 +30,6 @@ class BaseBuilderTests(BasePluginTest):
         self.execute_build()
         changeset = self.repo.get_changeset()
         self.assertEqual(self.build.commit.vcs_id, changeset.raw_id)
-        self.assertNotEqual(self.build.started, None)
-        self.assertNotEqual(self.build.finished, None)
         self.assertEqual(self.build.was_successful, success)
 
     def test_successful_build(self):
