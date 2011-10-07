@@ -1,5 +1,7 @@
 from django.db import models
+from django import forms
 from django.core.files.base import ContentFile
+
 
 class StringListField(models.CharField):
     __metaclass__ = models.SubfieldBase
@@ -11,7 +13,17 @@ class StringListField(models.CharField):
 
     def get_prep_value(self, value):
         if value:
-            value = ','.join(value)
+            value = ', '.join(value)
+        return value
+
+    def formfield(self, **kwargs):
+        kwargs['form_class'] = StringListFormField
+        return super(StringListField, self).formfield(**kwargs)
+
+class StringListFormField(forms.CharField):
+    def prepare_value(self, value):
+        if value:
+            value = ', '.join(value)
         return value
 
 
