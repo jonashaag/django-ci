@@ -1,0 +1,16 @@
+DEBUG = TEMPLATE_DEBUG = True
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': '/tmp/django-ci.sqlite',
+    }
+}
+
+MEDIA_ROOT = 'media'
+MEDIA_URL = '/media/'
+STATIC_URL = '/static/'
+ROOT_URLCONF = 'testp.urls'
+SITE_ID = 1
+
+BROKER_BACKEND = 'django'
