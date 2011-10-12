@@ -1,0 +1,9 @@
+<ul>
+{% for build in commit.builds.all %}
+  <li>
+    <span class="build {{ build.was_successful|yesno:"successful,failed,active" }}">
+      {{ build.configuration.name }}
+    </span>
+  </li>
+{% endfor %}
+</ul>

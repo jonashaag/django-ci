@@ -34,7 +34,7 @@
         <li>
           <a class=commit href="{{ commit.get_absolute_url }}">{{ commit.short_vcs_id }}</a>
           <span class=build-info>{{ commit.created }}</span>
-          {% include 'ci/commit-builds.inc.html' %}
+          {% include 'ci/commit_builds.inc.html' %}
         </li>
       {% endfor %}
       </ul>
