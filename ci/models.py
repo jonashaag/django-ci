@@ -1,9 +1,7 @@
 import os
-from itertools import repeat
 
 import vcs
 from django.db import models
-from django.db.utils import IntegrityError
 
 from ci.fields import StringListField, NamedFileField
 from ci.utils import make_choice_list
@@ -11,6 +9,12 @@ from ci.plugins import BUILDERS
 
 VCS_CHOICES = make_choice_list(['git', 'hg'])
 SHA1_LEN = 40
+
+def first_or_none(qs):
+    try:
+        return qs[0]
+    except IndexError:
+        return None
 
 def make_build_log_filename(build, filename):
     return os.path.join('builds', str(build.id), filename)
@@ -36,44 +40,50 @@ class Project(models.Model):
     def get_vcs_backend(self):
         return vcs.get_backend(self.vcs_type)
 
+    # XXX too many similar names
+
     def get_branch_order(self):
         return self.important_branches or [self.get_vcs_backend().DEFAULT_BRANCH_NAME]
 
-    def get_latest_branch_builds(self):
-        # Django supports neither SELECT ... FROM <subselect> nor GROUP BY :-(
-        # Could use DISTINCT ON once #6422 is merged
-        sql_params = [self.id]
-        branch_names_sql = ''
-        if self.important_branches:
-            sql_params.extend(self.important_branches)
-            branch_names_sql = ' AND branch IN (%s)' % \
-                ', '.join(repeat('%s', len(self.important_branches)))
-        return Build.objects.raw(
-            '''
-            SELECT * FROM ci_build
-            WHERE commit_id IN (
-              SELECT id FROM (
-                SELECT * FROM ci_commit
-                WHERE project_id=%%s AND was_successful IS NOT NULL %s
-                ORDER BY created
-              )
-              GROUP BY branch
-            )
-            ''' % branch_names_sql,
-            sql_params
-        )
+    def get_all_branches(self):
+        return self.commits.order_by().values_list('branch', flat=True).distinct()
+
+    def get_latest_branch_commits(self):
+        # unordered
+        branches = self.important_branches or self.get_all_branches()
+        for branch in branches:
+            try:
+                yield self.commits.filter(branch=branch) \
+                                  .exclude(was_successful=None)[0]
+            except IndexError:
+                pass
+
+    def get_branches_ordered(self):
+        all_branches = list(self.get_all_branches())
+        for branch in self.get_branch_order():
+            try:
+                all_branches.remove(branch)
+                yield branch
+            except ValueError:
+                pass
+        for branch in all_branches:
+            yield branch
+
+
+    def get_branch_commits(self):
+        for branch in self.get_branches_ordered():
+            commits = self.commits.filter(branch=branch)
+            latest = first_or_none(commits.exclude(was_successful=None))
+            latest_stable = first_or_none(commits.filter(was_successful=True))
+            active = commits.order_by('created').exclude(vcs_id=None) \
+                                                .filter(was_successful=None)
+            yield latest, latest_stable, active
 
     def get_active_builds(self):
-        return self.builds.filter(started__isnull=False, finished__isnull=True)
+        return self.builds.exclude(started=None).filter(finished=None)
 
     def get_pending_builds(self):
-        return self.builds.filter(started__isnull=True)
-
-    def get_last_stable_commit(self, branch):
-        try:
-            return self.commits.filter(was_successful=True, branch=branch)[0]
-        except IndexError:
-            return None
+        return self.builds.filter(started=None)
 
 
 class BuildConfiguration(models.Model):

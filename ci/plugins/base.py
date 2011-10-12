@@ -4,7 +4,6 @@ import tempfile
 import traceback
 from subprocess import Popen, PIPE
 
-from django.core.files.base import ContentFile
 from ci.utils import BuildFailed
 
 __all__ = ['Plugin', 'BuildHook', 'Builder', 'CommandBasedBuilder']

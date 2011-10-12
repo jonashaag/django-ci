@@ -1,5 +1,4 @@
 from django.conf.urls.defaults import patterns, url
-from django.views.generic import DetailView
 
 from ci.views import ProjectList, ProjectDetails, CommitDetails
 

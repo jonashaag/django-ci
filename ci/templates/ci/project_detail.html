@@ -10,29 +10,34 @@
 
 {% block content %}
 <ul class=branchlist>
-{% for commit, builds, active_builds, pending_builds, last_stable_commit in commits %}
+{% for latest, stable, active in commits %}
   <li>
     <div class=latest>
       <div class=branch-info>
-        {% commit_link commit %}
-        <span class=build-info>{{ commit.created }}</span>
+        {% commit_link latest %}
+        <span class=build-info>{{ latest.created }}</span>
         {% include 'ci/unfinished_builds.inc.html' %}
       </div>
-      <ul>
-      {% for build in builds %}
+      {% include 'ci/commit_builds.inc.html' with commit=latest %}
+    </div>
+
+    {% if stable and stable != latest %}
+      <div class=stable>
+        Last successful build: {% commit_link stable %}
+        ({{ stable.created }})
+      </div>
+    {% endif %}
+
+    {% if active %}
+      <ul class=active>
+      {% for commit in active %}
         <li>
-          <span class="build {{ build.was_successful|yesno:"successful,failed" }}">
-            {{ build.configuration.name }}
-          </span>
+          <a class=commit href="{{ commit.get_absolute_url }}">{{ commit.short_vcs_id }}</a>
+          <span class=build-info>{{ commit.created }}</span>
+          {% include 'ci/commit-builds.inc.html' %}
         </li>
       {% endfor %}
       </ul>
-    </div>
-    {% if last_stable_commit and last_stable_commit != commit %}
-      <div class=stable>
-        Last successful build: {% commit_link last_stable_commit %}
-        ({{ last_stable_commit.created }})
-      </div>
     {% endif %}
   </li>
 {% endfor %}

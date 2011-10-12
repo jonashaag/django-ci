@@ -1,4 +1,5 @@
 import random
+from collections import OrderedDict
 from BeautifulSoup import BeautifulSoup
 from datetime import datetime
 from django.test import TestCase
@@ -207,10 +208,10 @@ class ProjectDetailsTests(TestCase):
         # dev: tests failed
         self.add_build(d1, 'tests', was_successful=False)
 
-        self.branch_list = [
+        self.branch_list = OrderedDict([
             (default_branch, {'latest': ('def1', [('tests', 'failed'), ('docs', 'successful')])}),
             ('dev', {'latest': ('dev1', [('tests', 'failed')])}),
-        ]
+        ])
 
     def add_build(self, commit, config, **kwargs):
         kwargs.setdefault('started', datetime.now())
@@ -218,61 +219,97 @@ class ProjectDetailsTests(TestCase):
         config = self.project.configurations.get(name=config)
         return commit.builds.create(configuration=config, **kwargs)
 
-    def assertBranchList(self, expected_branch_list):
+    def assertBranchList(self, expected_branch_list=None, **kwargs):
+        if expected_branch_list is None:
+            expected_branch_list = self.branch_list
+            for branch, dict_ in kwargs.iteritems():
+                expected_branch_list[branch].update(dict_)
+            expected_branch_list = expected_branch_list.items()
+
         html = self.client.get(self.url).content
         dom = BeautifulSoup(html)
         branch_list = []
 
-        for idx, node in enumerate(dom.findAll(None, 'latest')):
-            commits = {}
-            # Latest commit:
-            branch, latest_commit = [span.text.strip() for span in
-                                     node.find('a').findAll('span')]
-            latest = [(b.text.strip(), b['class'].split()[1])
-                      for b in node.findAll(None, 'build')]
-            commits['latest'] = (latest_commit, latest)
+        for node in dom.findAll(None, 'latest'):
+            branch = self.get_commit_branch(node)
+            commits = {'latest': self.get_commit_info(node)}
+            # Actively building commits:
+            active = node.nextSibling.nextSibling
+            if active and active['class'] == 'active':
+                node = active
+                commits['active'] = [self.get_commit_info(li) for li in
+                                     node.findAll('li', recursive=False)]
             # Latest stable commit:
             stable = node.nextSibling.nextSibling
-            if stable is not None:
+            if stable:
+                # XXX get_commit_info
                 commits['stable'] = stable.findAll(None, 'commit')[0].text.strip()
-            self.assertEqual(expected_branch_list[idx], (branch, commits))
+            branch_list.append((branch, commits))
+
+        self.assertEqual(branch_list, expected_branch_list)
+
+    def get_commit_branch(self, node):
+        return node.find('a').find('span').text.strip()
+
+    def get_commit_info(self, node):
+        latest_commit = node.find('a').text.split('/')[-1]
+        builds = [(b.text.strip(), b['class'].split()[1])
+                  for b in node.findAll(None, 'build')]
+        return latest_commit, builds
 
     def test_1(self):
-        self.assertBranchList(self.branch_list)
+        self.assertBranchList()
         self.project.commits.filter(branch=default_branch).update(was_successful=True)
-        self.assertBranchList(self.branch_list)
+        self.assertBranchList()
 
     def test_last_stable(self):
         # dev: tests succeeded
-        self.project.commits.filter(vcs_id='dev1').update(was_successful=True)
-        d2 = self.project.commits.create(branch='dev', vcs_id='dev2', was_successful=False)
+        self.project.commits.filter(vcs_id='dev1').update(vcs_id='dev0', was_successful=True)
+        d2 = self.project.commits.create(branch='dev', vcs_id='dev1', was_successful=False)
         self.add_build(d2, 'tests', was_successful=False)
-        self.assertBranchList([
-            self.branch_list[0],
-            ('dev', {'latest': ('dev2', [('tests', 'failed')]), 'stable': 'dev1'})
-        ])
+        self.assertBranchList(dev={'stable': 'dev0'})
 
     def test_important_branches(self):
         # if given, 'important_branches' specifies the branch order
         self.project.important_branches = ['dev', default_branch, 'doesnotexist']
         self.project.save()
-        self.assertBranchList(self.branch_list[::-1])
-        self.project.important_branches = 'dev'
+        reversed_branch_list = list(reversed(self.branch_list.items()))
+        self.assertBranchList(reversed_branch_list)
+
+        o1 = self.project.commits.create(branch='other', vcs_id='other1', was_successful=False)
+        self.add_build(o1, 'tests', was_successful=False)
+        reversed_with_other = reversed_branch_list + \
+                              [('other', {'latest': ('other1', [('tests', 'failed')])})]
+        self.assertBranchList(reversed_with_other)
+
+        self.project.important_branches = ['other', 'doesnotexist', 'dev']
         self.project.save()
-        self.assertBranchList([self.branch_list[1]])
+        self.assertBranchList([
+            reversed_with_other[-1], # other
+            reversed_with_other[0],  # dev
+            reversed_with_other[1],  # default
+        ])
+
 
     def test_with_active_and_pending(self):
-        active = self.project.commits.create(branch=default_branch, vcs_id='active')
-        active.builds.create(started=datetime.now(), configuration_id=-1)
-        self.assertBranchList(self.branch_list)
+        active = self.project.commits.create(branch='dev', vcs_id='!done')
+        self.add_build(active, 'tests', finished=None)
+        active2 = self.project.commits.create(branch='dev', vcs_id='!done2')
+        self.add_build(active2, 'tests', was_successful=False)
+        self.add_build(active2, 'docs', finished=None)
+
+        self.assertBranchList(dev={'active': [
+            ('!done',  [('tests', 'active')]),
+            ('!done2', [('tests', 'failed'), ('docs', 'active')])
+        ]})
 
         response = self.client.get(self.url)
-        self.assertContains(response, "active: 1")
+        self.assertContains(response, "active: 2")
         self.assertNotContains(response, "pending")
-        active.builds.create(configuration_id=-2)
+        active.builds.create(configuration_id=-1)
 
         response = self.client.get(self.url)
-        self.assertContains(response, "active: 1")
+        self.assertContains(response, "active: 2")
         self.assertContains(response, "pending: 1")
 
 

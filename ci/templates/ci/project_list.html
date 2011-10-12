@@ -2,7 +2,7 @@
 
 {% block content %}
 <div id=project-list>
-{% for project, state, finished_count, failed_count, active_builds, pending_builds in projects %}
+{% for project, state, finished_count, failed_count in projects %}
   <a class="project {{ state }}" href="{{ project.get_absolute_url }}">
     <span class=name>{{ project.name }}</span>
     {% if failed_count %}

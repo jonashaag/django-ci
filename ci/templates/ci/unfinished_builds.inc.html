@@ -1,4 +1,5 @@
-{% with active_count=active_builds.count pending_count=pending_builds.count %}
+{% with project.get_active_builds.count  as active_count %}
+{% with project.get_pending_builds.count as pending_count %}
   {% if active_count %}
     <span class=build-info>
       active: {{ active_count }}
@@ -9,4 +10,5 @@
       pending: {{ pending_count }}
     </span>
   {% endif %}
+{% endwith %}
 {% endwith %}
