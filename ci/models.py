@@ -152,19 +152,10 @@ class Build(models.Model):
 
     @property
     def state(self):
-        if self.pending:
-            return 'pending'
-        if self.done:
-            return 'successful' if self.was_successful else 'failed'
-        return 'active'
-
-    @property
-    def done(self):
-        return self.finished is not None
-
-    @property
-    def pending(self):
-        return self.started is None
+        if self.finished:
+            return ('failed', 'successful')[self.was_successful]
+        else:
+            return ('pending', 'active')[bool(self.started)]
 
     @property
     def duration(self):
