@@ -69,12 +69,6 @@ class CommitDetails(DetailView):
         return context
 
     def get_builds_grouped_by_state(self):
-        builds = OrderedDict((state, []) for state in
-                             ('failed', 'successful', 'active', 'pending'))
-        for build in self.object.builds.all():
-            if build.done:
-                state = 'successful' if build.was_successful else 'failed'
-            else:
-                state = 'pending' if build.pending else 'active'
-            builds[state].append(build)
-        return builds
+        state_order = ['failed', 'successful', 'active', 'pending']
+        return sorted(self.object.builds.all(),
+                      key=lambda build: state_order.index(build.state))

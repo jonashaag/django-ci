@@ -14,17 +14,16 @@
 {% block content %}
 <div>{{ commit.created }}</div>
 <ul class=buildlist>
-{% for state, builds in builds.iteritems %}
-  {% for build in builds %}
+{% for build in builds %}
     <li>
-      <span class="build {{ state }}">{{ build.configuration.name }}</span>
+      <span class="build {{ build.state }}">{{ build.configuration.name }}</span>
       <span class=build-info>
-        {% if build.pending %}
+        {% if build.state == 'pending' %}
           <span>pending</span>
         {% else %}
           <span>started {{ build.started }}</span>
         {% endif %}
-        {% if build.done %}
+        {% if build.state != 'active' %}
           <span title="until {{ build.finished }}">took {{ build.duration }}</span>
           <span>
             {% if build.stdout %}
@@ -37,7 +36,6 @@
         {% endif %}
       </span>
     </li>
-  {% endfor %}
 {% endfor %}
 </ul>
 {% endblock %}
