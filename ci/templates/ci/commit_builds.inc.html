@@ -1,7 +1,7 @@
 <ul>
 {% for build in commit.builds.all %}
   <li>
-    <span class="build {{ build.was_successful|yesno:"successful,failed,active" }}">
+    <span class="build {{ build.state }}">
       {{ build.configuration.name }}
     </span>
   </li>

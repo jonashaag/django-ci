@@ -151,6 +151,14 @@ class Build(models.Model):
         return super(Build, self).save(*args, **kwargs)
 
     @property
+    def state(self):
+        if self.pending:
+            return 'pending'
+        if self.done:
+            return 'successful' if self.was_successful else 'failed'
+        return 'active'
+
+    @property
     def done(self):
         return self.finished is not None
 

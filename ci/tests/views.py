@@ -296,20 +296,15 @@ class ProjectDetailsTests(TestCase):
         self.add_build(active, 'tests', finished=None)
         active2 = self.project.commits.create(branch='dev', vcs_id='!done2')
         self.add_build(active2, 'tests', was_successful=False)
-        self.add_build(active2, 'docs', finished=None)
+        self.add_build(active2, 'docs', started=None, finished=None)
 
         self.assertBranchList(dev={'active': [
             ('!done',  [('tests', 'active')]),
-            ('!done2', [('tests', 'failed'), ('docs', 'active')])
+            ('!done2', [('tests', 'failed'), ('docs', 'pending')])
         ]})
 
         response = self.client.get(self.url)
-        self.assertContains(response, "active: 2")
-        self.assertNotContains(response, "pending")
-        active.builds.create(configuration_id=-1)
-
-        response = self.client.get(self.url)
-        self.assertContains(response, "active: 2")
+        self.assertContains(response, "active: 1")
         self.assertContains(response, "pending: 1")
 
 
@@ -337,9 +332,15 @@ class CommitDetailsTests(TestCase):
         random.shuffle(builds)
         for config, kwargs in builds:
             self.add_build(config, kwargs)
-        self.assertBuildList(['bad', 'good', 'active', 'pending'])
+        self.assertBuildList([
+            ('bad', 'failed'),
+            ('good', 'successful'),
+            ('active', 'active'),
+            ('pending', 'pending')
+        ])
 
     def assertBuildList(self, l):
         html = self.client.get(self.url).content
         dom = BeautifulSoup(html)
-        self.assertEqual([li.find('span').text for li in dom.findAll('li')], l)
+        self.assertEqual(l, [(span.text, span['class'].split()[1])
+                             for span in dom.findAll(None, 'build')])
