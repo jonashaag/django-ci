@@ -23,11 +23,17 @@ def build_hook(request, project_slug, hook_type):
     hook = BUILD_HOOKS[hook_type](request)
     branches = {branch: project.commits.create(branch=branch)
                 for branch in hook.get_changed_branches()}
-    for build_config in project.configurations.all():
-        for branch, commit in branches.iteritems():
+    configurations = project.configurations.all()
+    for branch, commit in branches.iteritems():
+        nbuilds = 0
+        for build_config in configurations:
             if build_config.should_build_branch(branch):
+                nbuilds += 1
                 build = commit.builds.create(configuration=build_config)
                 execute_build.delay(build.id, build_config.builder)
+        if nbuilds < 1:
+            # Don't keep empty commits
+            commit.delete()
     return HttpResponse()
 
 

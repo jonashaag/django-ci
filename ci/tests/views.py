@@ -1,8 +1,10 @@
 import random
 from collections import OrderedDict
-from BeautifulSoup import BeautifulSoup
 from datetime import datetime
+
+from BeautifulSoup import BeautifulSoup
 from django.test import TestCase
+
 from ci.models import Project, Commit, Build
 from ci.plugins import BUILDERS, BUILD_HOOKS
 from ci.plugins.base import BuildHook
@@ -43,6 +45,12 @@ class BuildHookTests(BaseTestCase):
         self.assertEqual(Commit.objects.count(), 1)
         self.assertEqual(Build.objects.count(), 2)
         self.assertTrue(Commit.objects.get().was_successful)
+
+    def test_commit_without_builds(self):
+        self.project.configurations.all().delete()
+        self.assertEqual(self.client.get('/ci/p1/buildhooks/testhook/').status_code, 200)
+        self.assertEqual(Commit.objects.count(), 0)
+        self.assertEqual(Build.objects.count(), 0)
 
     def test_hook_failing_build(self):
         self.commit({'changed': {'build.sh': 'exit 1'}, 'branch': 'fail'})
