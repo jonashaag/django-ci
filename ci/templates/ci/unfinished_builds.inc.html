@@ -1,14 +1,10 @@
-{% with project.get_active_builds.count  as active_count %}
-{% with project.get_pending_builds.count as pending_count %}
-  {% if active_count %}
-    <span class=build-info>
-      active: {{ active_count }}
-    </span>
-  {% endif %}
-  {% if pending_count %}
-    <span class=build-info>
-      pending: {{ pending_count }}
-    </span>
-  {% endif %}
-{% endwith %}
-{% endwith %}
+{% if unfinished_count.active %}
+  <span class=build-info>
+    active: {{ unfinished_count.active }}
+  </span>
+{% endif %}
+{% if unfinished_count.pending %}
+  <span class=build-info>
+    pending: {{ unfinished_count.pending }}
+  </span>
+{% endif %}

@@ -21,8 +21,10 @@ def build_hook(request, project_slug, hook_type):
     if hook_type not in BUILD_HOOKS:
         raise Http404
     hook = BUILD_HOOKS[hook_type](request)
+
     branches = {branch: project.commits.create(branch=branch)
                 for branch in hook.get_changed_branches()}
+
     configurations = project.configurations.all()
     for branch, commit in branches.iteritems():
         nbuilds = 0
@@ -34,6 +36,7 @@ def build_hook(request, project_slug, hook_type):
         if nbuilds < 1:
             # Don't keep empty commits
             commit.delete()
+
     return HttpResponse()
 
 
@@ -44,6 +47,8 @@ class ProjectList(ListView):
         context = super(ProjectList, self).get_context_data(**kwargs)
         context['projects'] = projects = []
         for project in self.object_list:
+            unfinished_builds = {'active': project.get_active_builds().count(),
+                                 'pending': project.get_pending_builds().count()}
             commit_pks = [c.pk for c in project.get_latest_branch_commits()]
             success_values = Build.objects.filter(commit__pk__in=commit_pks) \
                                           .values_list('was_successful', flat=True)
@@ -51,7 +56,10 @@ class ProjectList(ListView):
             failed_builds = len(filter(not_, success_values))
             state = 'unknown' if not finished_builds else \
                         ('failed' if failed_builds else 'successful')
-            projects.append([project, state, finished_builds, failed_builds])
+            projects.append([
+                project, state, unfinished_builds,
+                finished_builds, failed_builds
+            ])
         return context
 
 

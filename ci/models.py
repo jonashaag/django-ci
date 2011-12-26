@@ -1,4 +1,5 @@
 import os
+from collections import defaultdict
 
 import vcs
 from django.db import models
@@ -75,9 +76,13 @@ class Project(models.Model):
             commits = self.commits.filter(branch=branch)
             latest = first_or_none(commits.exclude(was_successful=None))
             latest_stable = first_or_none(commits.filter(was_successful=True))
-            active = commits.order_by('created').exclude(vcs_id=None) \
-                                                .filter(was_successful=None)
-            yield latest, latest_stable, active
+            unfinished = commits.order_by('created').exclude(vcs_id=None) \
+                                                    .filter(was_successful=None)
+            unfinished_builds = defaultdict(int)
+            for commit in unfinished:
+                for build in commit.builds.all():
+                    unfinished_builds[build.state] += 1
+            yield latest, latest_stable, unfinished_builds, unfinished
 
     def get_active_builds(self):
         return self.builds.exclude(started=None).filter(finished=None)

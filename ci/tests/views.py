@@ -1,5 +1,5 @@
 import random
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 from datetime import datetime
 
 from BeautifulSoup import BeautifulSoup
@@ -234,27 +234,45 @@ class ProjectDetailsTests(TestCase):
                 expected_branch_list[branch].update(dict_)
             expected_branch_list = expected_branch_list.items()
 
+        self.assertEqual(list(self.get_branch_list()), expected_branch_list)
+
+    def get_branch_list(self):
         html = self.client.get(self.url).content
         dom = BeautifulSoup(html)
-        branch_list = []
 
+        # XXX 'latest' not always present
         for node in dom.findAll(None, 'latest'):
             branch = self.get_commit_branch(node)
             commits = {'latest': self.get_commit_info(node)}
-            # Actively building commits:
-            active = node.nextSibling.nextSibling
-            if active and active['class'] == 'active':
-                node = active
-                commits['active'] = [self.get_commit_info(li) for li in
-                                     node.findAll('li', recursive=False)]
+
+            # Unfinished commits (i.e. commits with active/pending builds):
+            unfinished = node.nextSibling.nextSibling
+            if unfinished and unfinished['class'] == 'unfinished':
+                commits['unfinished'] = []
+                nbuilds = defaultdict(int)
+                for commit in unfinished.findAll('li', recursive=False):
+                    commit, builds = self.get_commit_info(commit)
+                    commits['unfinished'].append((commit, builds))
+                    for _, state in builds:
+                        nbuilds[state] += 1
+
+                self.assertIn('active: %d' % nbuilds['active'], str(node))
+                self.assertIn('pending: %d' % nbuilds['pending'], str(node))
+
+                # Continue after the 'unfinished' node
+                node = unfinished
+            else:
+                # No unfinished builds
+                self.assertNotIn('active:', str(node))
+                self.assertNotIn('pending:', str(node))
+
             # Latest stable commit:
             stable = node.nextSibling.nextSibling
             if stable:
                 # XXX get_commit_info
                 commits['stable'] = stable.findAll(None, 'commit')[0].text.strip()
-            branch_list.append((branch, commits))
 
-        self.assertEqual(branch_list, expected_branch_list)
+            yield branch, commits
 
     def get_commit_branch(self, node):
         return node.find('a').find('span').text.strip()
@@ -264,6 +282,7 @@ class ProjectDetailsTests(TestCase):
         builds = [(b.text.strip(), b['class'].split()[1])
                   for b in node.findAll(None, 'build')]
         return latest_commit, builds
+
 
     def test_1(self):
         self.assertBranchList()
@@ -306,14 +325,10 @@ class ProjectDetailsTests(TestCase):
         self.add_build(active2, 'tests', was_successful=False)
         self.add_build(active2, 'docs', started=None, finished=None)
 
-        self.assertBranchList(dev={'active': [
+        self.assertBranchList(dev={'unfinished': [
             ('!done',  [('tests', 'active')]),
             ('!done2', [('tests', 'failed'), ('docs', 'pending')])
         ]})
-
-        response = self.client.get(self.url)
-        self.assertContains(response, "active: 1")
-        self.assertContains(response, "pending: 1")
 
 
 class CommitDetailsTests(TestCase):

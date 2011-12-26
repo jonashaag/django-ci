@@ -10,7 +10,7 @@
 
 {% block content %}
 <ul class=branchlist>
-{% for latest, stable, active in commits %}
+{% for latest, stable, unfinished_count, unfinished_commits in commits %}
   <li>
     <div class=latest>
       <div class=branch-info>
@@ -28,9 +28,9 @@
       </div>
     {% endif %}
 
-    {% if active %}
-      <ul class=active>
-      {% for commit in active %}
+    {% if unfinished_commits %}
+      <ul class=unfinished>
+      {% for commit in unfinished_commits %}
         <li>
           <a class=commit href="{{ commit.get_absolute_url }}">{{ commit.short_vcs_id }}</a>
           <span class=build-info>{{ commit.created }}</span>
