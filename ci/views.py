@@ -45,7 +45,10 @@ class ProjectList(ListView):
 
     def get_context_data(self, **kwargs):
         context = super(ProjectList, self).get_context_data(**kwargs)
-        context['projects'] = projects = []
+        context['projects'] = list(self.get_project_list())
+        return context
+
+    def get_project_list(self):
         for project in self.object_list:
             unfinished_builds = {'active': project.get_active_builds().count(),
                                  'pending': project.get_pending_builds().count()}
@@ -56,11 +59,8 @@ class ProjectList(ListView):
             failed_builds = len(filter(not_, success_values))
             state = 'unknown' if not finished_builds else \
                         ('failed' if failed_builds else 'successful')
-            projects.append([
-                project, state, unfinished_builds,
-                finished_builds, failed_builds
-            ])
-        return context
+
+            yield project, state, unfinished_builds, finished_builds, failed_builds
 
 
 class ProjectDetails(DetailView):
