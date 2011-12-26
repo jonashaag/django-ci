@@ -9,3 +9,4 @@ Requirements
 * vcs >= 2.0.1
 * django-celery >= 2.4.0 (use Git version until release)
 * dulwich for Git and/or Mercurial
+* BeautifulSoup for testing
