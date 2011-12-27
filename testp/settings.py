@@ -1,7 +1,8 @@
 from django.conf.global_settings import *
 from local_settings import *
 
-TEMPLATE_CONTEXT_PROCESSORS += ('ci.context_processors.site',)
+TEMPLATE_CONTEXT_PROCESSORS += ('ci.context_processors.site',
+                                'ci.context_processors.git_rev',)
 
 INSTALLED_APPS = [
     'django.contrib.auth',

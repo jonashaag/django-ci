@@ -9,6 +9,8 @@
 
 {% block breadcrumbs %}
   {% url "overview" as href %}
-  {% include 'ci/breadcrumb.inc.html' with text="powered by django-ci" href="https://github.com/jonashaag/django-ci" %}
+  <a href="https://github.com/jonashaag/django-ci">
+    <span>powered by django-ci &nbsp;({{ ci_git_rev }})</span>
+  </a>
   {% include 'ci/breadcrumb.inc.html' with text=current_site.name %}
 {% endblock %}
