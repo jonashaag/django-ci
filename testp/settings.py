@@ -20,3 +20,7 @@ INSTALLED_APPS = [
 
 TEST_RUNNER = 'djcelery.contrib.test_runner.CeleryTestSuiteRunner'
 CELERY_EAGER_PROPAGATES_EXCEPTIONS = True
+
+CI_PLUGINS = ['ci.plugins.defaultplugin', 'ci.plugins.github']
+if DEBUG:
+    CI_PLUGINS.append('ci.plugins.debug')
