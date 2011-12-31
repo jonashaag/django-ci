@@ -1,10 +1,10 @@
 {% extends 'base.html' %}
-
 {% load url from future %}
 {% load staticfiles %}
 
-{% block head %}
-<link rel=stylesheet href={% static "ci/css/ci.css" %}>
+{% block css %}
+  {{ block.super }}
+  <link rel=stylesheet href={% static "ci/css/ci.css" %}>
 {% endblock %}
 
 {% block breadcrumbs %}
