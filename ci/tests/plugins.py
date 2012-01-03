@@ -1,6 +1,6 @@
 from ci.utils import BuildFailed
 from ci.plugins.base import Builder
-from ci.tests.utils import BaseTestCase, BuildDotShBuilder, default_branch
+from ci.tests.utils import RepoTestCase, BuildDotShBuilder, default_branch
 
 class SimpleBuilder(Builder):
     def __init__(self, build):
@@ -11,17 +11,15 @@ class SimpleBuilder(Builder):
         if self.exception:
             raise self.exception
 
-class BasePluginTest(BaseTestCase):
+class BuilderTestCase(RepoTestCase):
+    builder = SimpleBuilder
+
     def setUp(self):
-        super(BasePluginTest, self).setUp()
+        super(BuilderTestCase, self).setUp()
         self.config = self.project.configurations.create()
         commit = self.project.commits.create(branch=default_branch)
         self.build = commit.builds.create(configuration=self.config)
         self.builder = self.__class__.builder(self.build)
-
-
-class BaseBuilderTests(BasePluginTest):
-    builder = SimpleBuilder
 
     def execute_build(self):
         self.builder.execute_build()
@@ -68,7 +66,7 @@ class BaseBuilderTests(BasePluginTest):
         self.builder.exception = BuildFailed
 
 
-class CommandBasedBuilderTests(BaseBuilderTests):
+class CommandBasedBuilderTests(BuilderTestCase):
     builder = BuildDotShBuilder
     build_script = "echo -n error >&2; echo -n output; test ! -e should_fail"
     commits = [{'message': "Added build script",

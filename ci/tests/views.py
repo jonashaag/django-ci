@@ -3,18 +3,20 @@ from collections import OrderedDict, defaultdict
 from datetime import datetime
 
 from BeautifulSoup import BeautifulSoup
+
 from django.test import TestCase
+from django.contrib.auth.models import User
 
 from ci.models import Project, Commit, Build
 from ci.plugins import BUILDERS, BUILD_HOOKS
 from ci.plugins.base import BuildHook
-from ci.tests.utils import BaseTestCase, VCS, default_branch, BuildDotShBuilder
+from ci.tests.utils import BaseTestCase, RepoTestCase, default_branch, BuildDotShBuilder
 
 class TestBuildHook(BuildHook):
     def get_changed_branches(self):
         return [default_branch]
 
-class BuildHookTests(BaseTestCase):
+class BuildHookTests(RepoTestCase):
     commits = [{'added': {'build.sh': 'exit 0'}}]
 
     def setUp(self):
@@ -34,21 +36,22 @@ class BuildHookTests(BaseTestCase):
         self.assertEqual(response.status_code, 404)
 
     def test_project_404(self):
-        self.assert404(self.client.get('/ci/no-such-project/buildhooks/somehook/'))
+        self.assert404(self.client.get('/ci/user/no-such-project/buildhooks/somehook/'))
+        self.assert404(self.client.get('/ci/no-such-user/p1/buildhooks/somehook/'))
 
     def test_hook_404(self):
-        self.assert404(self.client.get('/ci/p1/buildhooks/no-such-hook/'))
+        self.assert404(self.client.get('/ci/user/p1/buildhooks/no-such-hook/'))
 
     def test_hook(self):
         self.assertEqual(Commit.objects.count(), 0)
-        self.assertEqual(self.client.get('/ci/p1/buildhooks/testhook/').status_code, 200)
+        self.assertEqual(self.client.get('/ci/user/p1/buildhooks/testhook/').status_code, 200)
         self.assertEqual(Commit.objects.count(), 1)
         self.assertEqual(Build.objects.count(), 2)
         self.assertTrue(Commit.objects.get().was_successful)
 
     def test_commit_without_builds(self):
         self.project.configurations.all().delete()
-        self.assertEqual(self.client.get('/ci/p1/buildhooks/testhook/').status_code, 200)
+        self.assertEqual(self.client.get('/ci/user/p1/buildhooks/testhook/').status_code, 200)
         self.assertEqual(Commit.objects.count(), 0)
         self.assertEqual(Build.objects.count(), 0)
 
@@ -59,7 +62,7 @@ class BuildHookTests(BaseTestCase):
                 return [default_branch, 'fail']
         BUILD_HOOKS['testhook'] = Hook
 
-        self.assertEqual(self.client.get('/ci/p1/buildhooks/testhook/').status_code, 200)
+        self.assertEqual(self.client.get('/ci/user/p1/buildhooks/testhook/').status_code, 200)
         self.assertEqual(Commit.objects.count(), 2)
         self.assertEqual(Commit.objects.filter(was_successful=None).count(), 0)
         self.assertEqual(Build.objects.count(), 4)
@@ -84,16 +87,17 @@ class BuildHookTests(BaseTestCase):
         config_1.branches = default_branch
         config_0.save()
         config_1.save()
-        self.assertEqual(self.client.get('/ci/p1/buildhooks/testhook/').status_code, 200)
+        self.assertEqual(self.client.get('/ci/user/p1/buildhooks/testhook/').status_code, 200)
         self.assertEqual(Commit.objects.get(branch='fail').builds.get().configuration, config_0)
         self.assertEqual(Commit.objects.exclude(branch='fail').get().builds.get().configuration, config_1)
 
 
-class OverviewTests(TestCase):
+class DashboardTests(BaseTestCase):
     url = '/ci/'
 
     def setUp(self):
-        self.project = Project.objects.create(name='p1', slug='p1')
+        super(DashboardTests, self).setUp()
+
         b1c1 = self.project.commits.create(vcs_id='c1', branch='b1', was_successful=True)
         b2c1 = self.project.commits.create(vcs_id='c1', branch='b2', was_successful=True)
         for commit in [b1c1, b1c1, b2c1]:
@@ -101,13 +105,15 @@ class OverviewTests(TestCase):
 
         # here to ensure that only builds/commits that belong to each project
         # are taken into account (rather than *all* builds/commits)
-        p2 = Project.objects.create(name='p2', slug='p2')
+        p2 = self.create_project(name='p2', slug='p2')
         foo1 = p2.commits.create(branch='foo', vcs_id='foo1', was_successful=False)
         bar1 = p2.commits.create(branch='bar', vcs_id='bar1', was_successful=True)
         self.add_build(foo1, started=False)
         self.add_build(bar1, done=False)
         self.add_build(foo1, done=True, success=False)
         self.add_build(bar1, done=True, success=True)
+
+        assert self.client.login(username='user', password='secret')
 
     def add_build(self, commit, started=True, done=None, success=None):
         kwargs = {'configuration_id': random.randint(1, 9999)}
@@ -127,7 +133,7 @@ class OverviewTests(TestCase):
         first_project_end = html.find('</a>', content_start)
         response.content = html[content_start:first_project_end]
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, '/ci/p1/')
+        self.assertContains(response, '/ci/user/p1/')
         self.assertContains(response, 'class="project %s"' % state)
         self.assertContains(response, state_text)
         return response
@@ -191,18 +197,15 @@ class OverviewTests(TestCase):
         self.assertContains(response, "pending: 2")
 
 
-class ProjectDetailsTests(TestCase):
+class ProjectDetailsTests(BaseTestCase):
     # XXX show branches without builds (+ pending + active)
-    url = '/ci/my-super-cool-project/'
+    url = '/ci/user/p1/'
 
     def setUp(self):
+        super(ProjectDetailsTests, self).setUp()
+
         # Project with two branches '$default_branch' and 'dev'.
         # Both branches get tested; docs are generated for '$default_branch' only.
-        self.project = Project.objects.create(
-            name='My super cool Project',
-            slug='my-super-cool-project',
-            vcs_type=VCS
-        )
         self.project.configurations.create(name='tests')
         self.project.configurations.create(name='docs', branches=[default_branch])
 
@@ -331,11 +334,11 @@ class ProjectDetailsTests(TestCase):
         ]})
 
 
-class CommitDetailsTests(TestCase):
-    url = '/ci/testproject/builds/1/'
+class CommitDetailsTests(BaseTestCase):
+    url = '/ci/user/p1/builds/1/'
 
     def setUp(self):
-        self.project = Project.objects.create(slug='testproject')
+        super(CommitDetailsTests, self).setUp()
         for name in ['good', 'bad', 'active', 'pending']:
             self.project.configurations.create(name=name)
         self.commit = self.project.commits.create(branch='testbranch', vcs_id='testid')

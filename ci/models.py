@@ -2,7 +2,9 @@ import os
 from collections import defaultdict
 
 import vcs
+
 from django.db import models
+from django.contrib.auth.models import User
 
 from ci.fields import StringListField, NamedFileField
 from ci.utils import make_choice_list
@@ -21,11 +23,15 @@ def make_build_log_filename(build, filename):
     return os.path.join('builds', str(build.id), filename)
 
 class Project(models.Model):
-    name = models.CharField(max_length=100, unique=True)
-    slug = models.SlugField(max_length=100, unique=True)
+    owner = models.ForeignKey(User, related_name='projects')
+    name = models.CharField(max_length=100)
+    slug = models.SlugField(max_length=100)
     vcs_type = models.CharField('VCS type', choices=VCS_CHOICES, max_length=10)
     repo_uri = models.CharField('Repository URI', max_length=500)
     important_branches = StringListField(blank=True, null=True, max_length=500)
+
+    class Meta:
+        unique_together = ['owner', 'slug']
 
     @property
     def builds(self):
@@ -36,7 +42,7 @@ class Project(models.Model):
 
     @models.permalink
     def get_absolute_url(self):
-        return 'project', (), {'slug': self.slug}
+        return 'project', (), {'user': self.owner.username, 'slug': self.slug}
 
     def get_vcs_backend(self):
         return vcs.get_backend(self.vcs_type)

@@ -1,10 +1,21 @@
-from django.conf.urls.defaults import patterns, url
+from django.conf.urls import patterns, url, include
+from ci.views import *
 
-from ci.views import ProjectList, ProjectDetails, CommitDetails
+# /ci/<username>/<project>/*
+project_patterns = patterns('ci.views',
+    url('^$', 'project', name='project'),
+    url('^builds/(?P<pk>[\w_-]+)/$', CommitDetails.as_view(), name='commit'),
+    url('^buildhooks/(?P<hook_type>[\w_-]+)/$', 'build_hook'),
+)
 
+# /ci/<username>/*
+user_patterns = patterns('ci.views',
+    url('^$', 'user', name='user'),
+    url('^(?P<slug>[\w_-]+)/', include(project_patterns))
+)
+
+# /ci/*
 urlpatterns = patterns('ci.views',
-    url('^$', ProjectList.as_view(), name='overview'),
-    url('^(?P<slug>[\w-]+)/$', ProjectDetails.as_view(), name='project'),
-    url('^(?P<project_slug>[\w-]+)/builds/(?P<pk>[\w-]+)/$', CommitDetails.as_view(), name='commit'),
-    url('^(?P<project_slug>[\w-]+)/buildhooks/(?P<hook_type>[\w-]+)/$', 'build_hook'),
+    url('^$', 'dashboard', name='dashboard'),
+    url('^(?P<user>[\w_-]+)/', include(user_patterns)),
 )
