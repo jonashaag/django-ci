@@ -1,17 +1,15 @@
 import os
+import tempfile
 from collections import defaultdict
 
-import vcs
-
+from django.conf import settings
 from django.db import models
 from django.contrib.auth.models import User
 
+from ci import git
 from ci.fields import StringListField, NamedFileField
 from ci.utils import make_choice_list
 from ci.plugins import BUILDERS
-
-VCS_CHOICES = make_choice_list(['git', 'hg'])
-SHA1_LEN = 40
 
 def first_or_none(qs):
     try:
@@ -26,16 +24,11 @@ class Project(models.Model):
     owner = models.ForeignKey(User, related_name='projects')
     name = models.CharField(max_length=100)
     slug = models.SlugField(max_length=100)
-    vcs_type = models.CharField('VCS type', choices=VCS_CHOICES, max_length=10)
-    repo_uri = models.CharField('Repository URI', max_length=500)
+    repo_uri = models.CharField(max_length=500)
     important_branches = StringListField(blank=True, null=True, max_length=500)
 
     class Meta:
         unique_together = ['owner', 'slug']
-
-    @property
-    def builds(self):
-        return Build.objects.filter(commit__project=self)
 
     def __unicode__(self):
         return self.name
@@ -44,26 +37,13 @@ class Project(models.Model):
     def get_absolute_url(self):
         return 'project', (), {'user': self.owner.username, 'slug': self.slug}
 
-    def get_vcs_backend(self):
-        return vcs.get_backend(self.vcs_type)
+    # XXX too many methods, too many similar names
 
-    # XXX too many similar names
+    def clone_repo(self, **kwargs):
+        return git.Repo.clone(self.repo_uri, tempfile.mkdtemp(), **kwargs)
 
     def get_branch_order(self):
-        return self.important_branches or [self.get_vcs_backend().DEFAULT_BRANCH_NAME]
-
-    def get_all_branches(self):
-        return self.commits.order_by().values_list('branch', flat=True).distinct()
-
-    def get_latest_branch_commits(self):
-        # unordered
-        branches = self.important_branches or self.get_all_branches()
-        for branch in branches:
-            try:
-                yield self.commits.filter(branch=branch) \
-                                  .exclude(was_successful=None)[0]
-            except IndexError:
-                pass
+        return self.important_branches or ['master']
 
     def get_branches_ordered(self):
         all_branches = list(self.get_all_branches())
@@ -76,13 +56,29 @@ class Project(models.Model):
         for branch in all_branches:
             yield branch
 
+    def get_all_branches(self):
+        tracked_branches = BuildConfiguration.objects.values_list('branches', flat=True)
+        return set(sum(tracked_branches, []))
+
+    def get_latest_branch_builds(self):
+        branches = self.important_branches or self.get_all_branches()
+        for branch in branches:
+            yield self.get_latest_build(branch)
+
+    def get_latest_branch_build(self, branch):
+        for commit in git.log(self, branch):
+            try:
+                yield Build.objects.filter(sha=commit)
+                break
+            except Build.DoesNotExist:
+                pass
 
     def get_branch_commits(self):
         for branch in self.get_branches_ordered():
             commits = self.commits.filter(branch=branch)
             latest = first_or_none(commits.exclude(was_successful=None))
             latest_stable = first_or_none(commits.filter(was_successful=True))
-            unfinished = commits.order_by('created').exclude(vcs_id=None) \
+            unfinished = commits.order_by('created').exclude(sha=None) \
                                                     .filter(was_successful=None)
             unfinished_builds = defaultdict(int)
             for commit in unfinished:
@@ -111,50 +107,21 @@ class BuildConfiguration(models.Model):
         return not self.branches or branch in self.branches
 
 
-class Commit(models.Model):
-    created = models.DateTimeField(auto_now_add=True)
-    project = models.ForeignKey(Project, related_name='commits')
-    vcs_id = models.CharField(max_length=SHA1_LEN, blank=True, null=True)
-    branch = models.CharField(max_length=100)
-    short_message = models.CharField(max_length=100)
-    was_successful = models.NullBooleanField()
-
-    class Meta:
-        ordering = ['-created']
-
-    def __unicode__(self):
-        return '/'.join([self.branch, self.vcs_id or '(unknown)'])
-
-    @models.permalink
-    def get_absolute_url(self):
-        return 'commit', (), {'project_slug': self.project.slug, 'pk': self.id}
-
-    @property
-    def short_vcs_id(self):
-        return self.vcs_id[:7]
-
-    def get_builds_for_branch(self):
-        return Build.objects.filter(commit__branch=self.branch)
-
-    def get_active_builds_for_branch(self):
-        return self.get_builds_for_branch().filter(started__isnull=False,
-                                                   finished__isnull=True)
-
-    def get_pending_builds_for_branch(self):
-        return self.get_builds_for_branch().filter(started__isnull=True)
-
-
 class Build(models.Model):
     configuration = models.ForeignKey(BuildConfiguration, related_name='builds')
-    commit = models.ForeignKey(Commit, related_name='builds')
+    sha = models.CharField(max_length=40)
     started = models.DateTimeField(null=True, blank=True)
     finished = models.DateTimeField(null=True, blank=True)
     was_successful = models.NullBooleanField()
     stdout = NamedFileField('stdout.txt', upload_to=make_build_log_filename)
     stderr = NamedFileField('stderr.txt', upload_to=make_build_log_filename)
 
+    @property
+    def project(self):
+        return self.configuration.project
+
     class Meta:
-        unique_together = ['configuration', 'commit']
+        unique_together = ['configuration', 'sha']
 
     def save(self, *args, **kwargs):
         assert not (self.was_successful and not self.finished)

@@ -4,8 +4,8 @@ from ci.views import *
 # /ci/<username>/<project>/*
 project_patterns = patterns('ci.views',
     url('^$', 'project', name='project'),
-    url('^builds/(?P<pk>[\w_-]+)/$', CommitDetails.as_view(), name='commit'),
-    url('^buildhooks/(?P<hook_type>[\w_-]+)/$', 'build_hook'),
+    #url('^builds/(?P<pk>[\w_-]+)/$', CommitDetails.as_view(), name='commit'),
+    url('^update/$', 'build_hook'),
 )
 
 # /ci/<username>/*

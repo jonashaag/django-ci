@@ -1,57 +1,38 @@
 from ci.utils import BuildFailed
 from ci.plugins.base import Builder
-from ci.tests.utils import RepoTestCase, BuildDotShBuilder, default_branch
+from ci.tests.utils import RepoTestCase, BuildDotShBuilder
 
-class SimpleBuilder(Builder):
-    def __init__(self, build):
-        self.exception = None
-        Builder.__init__(self, build)
-
+class AlwaysSuccessfulBuilder(Builder):
     def run(self):
-        if self.exception:
-            raise self.exception
+        pass
 
 class BuilderTestCase(RepoTestCase):
-    builder = SimpleBuilder
+    builder = AlwaysSuccessfulBuilder
 
     def setUp(self):
         super(BuilderTestCase, self).setUp()
         self.config = self.project.configurations.create()
-        commit = self.project.commits.create(branch=default_branch)
-        self.build = commit.builds.create(configuration=self.config)
-        self.builder = self.__class__.builder(self.build)
 
-    def execute_build(self):
-        self.builder.execute_build()
+    def execute_build(self, builder=None):
+        self.build = self.config.builds.create(sha=self.repo.get_branches()['master'])
+        builder = (builder or self.__class__.builder)(self.build)
+        builder.execute_build()
 
     def _test_build(self, success):
         self.execute_build()
-        changeset = self.repo.get_changeset()
-        self.assertEqual(self.build.commit.vcs_id, changeset.raw_id)
         self.assertEqual(self.build.was_successful, success)
 
-    def test_successful_build(self):
+    def test_build_success(self):
         self._test_build(success=True)
 
     def test_build_failure(self):
         """ A build that raises BuildFailed """
-        self.break_build()
-        self._test_build(success=False)
-
-    def _test_build_exception(self, exc, stderr_hook=None):
-        """ A build that raises an unexpected exception """
-        class BadBuilder(self.__class__.builder):
+        class FailingBuild(Builder):
             def run(self):
-                super(BadBuilder, self).run()
-                raise exc
-        self.builder = BadBuilder(self.build)
-        self.assertRaises(exc, self._test_build, success=False)
-        if stderr_hook:
-            stderr_hook()
-        stderr = self.build.stderr.read().strip().split('\n\n')
-        self.assertEqual(stderr[0], '=' * 79)
-        self.assertEqual(stderr[1], "Exception in django-ci/builder")
-        self.assertTrue(stderr[2].startswith("Traceback (most recent"))
+                raise BuildFailed
+
+        self.execute_build(FailingBuild)
+        self.assertEqual(self.build.was_successful, False)
 
     def test_build_exception_1(self):
         self._test_build_exception(AttributeError)
@@ -62,20 +43,34 @@ class BuilderTestCase(RepoTestCase):
     def test_build_exception_3(self):
         self._test_build_exception(ValueError)
 
-    def break_build(self):
-        self.builder.exception = BuildFailed
+    def _test_build_exception(self, exc, stderr_hook=None):
+        """ A build that raises an unexpected exception """
+
+        class BadBuilder(self.__class__.builder):
+            def run(self):
+                super(BadBuilder, self).run()
+                raise exc
+
+        self.assertRaises(exc, self.execute_build, BadBuilder)
+
+        if stderr_hook:
+            stderr_hook()
+
+        stderr = self.build.stderr.read().strip().split('\n\n')
+        self.assertEqual(stderr[0], '=' * 79)
+        self.assertEqual(stderr[1], "Exception in django-ci/builder")
+        self.assertTrue(stderr[2].startswith("Traceback (most recent"))
 
 
 class CommandBasedBuilderTests(BuilderTestCase):
     builder = BuildDotShBuilder
-    build_script = "echo -n error >&2; echo -n output; test ! -e should_fail"
-    commits = [{'message': "Added build script",
-                'added': {'build.sh': build_script}}]
+    commits = [{'build.sh': "echo -n error >&2; echo -n output; test ! -e should_fail"}]
 
     def _test_build(self, success, stdout='output', stderr='error'):
         super(CommandBasedBuilderTests, self)._test_build(success)
         self.assertEqual(self.build.stdout.read(), stdout)
-        self.assertEqual(self.build.stderr.read(), stderr)
+        if stderr:
+            self.assertEqual(self.build.stderr.read(), stderr)
 
     def _test_build_exception(self, exc):
         def stderr_hook():
@@ -83,11 +78,9 @@ class CommandBasedBuilderTests(BuilderTestCase):
         super(CommandBasedBuilderTests, self)._test_build_exception(exc, stderr_hook)
 
     def break_build(self):
-        self.commit({'message': "Broke the build", 'added': {'should_fail': ''}})
+        self.commit({'should_fail': ''})
 
     def test_tons_of_output(self):
         # XXX use thread + timeout
-        self.commit({'changed': {'build.sh': 'yes hello | head -n 100000'}})
-        self.execute_build()
-        # use raw 'assert' here to avoid spamming the console in case of a failure
-        assert self.build.stdout.read() ==  'hello\n'*100000
+        self.commit({'build.sh': 'yes hello | head -n 100000'})
+        self._test_build(True, stdout='hello\n'*100000, stderr=None)

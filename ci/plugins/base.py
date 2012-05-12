@@ -1,26 +1,17 @@
 import os
 import shutil
-import tempfile
 import traceback
+import tempfile
 from subprocess import Popen, PIPE
 
+from ci import git
 from ci.utils import BuildFailed
 
-__all__ = ['Plugin', 'BuildHook', 'Builder', 'CommandBasedBuilder']
+__all__ = ['Plugin', 'Builder', 'CommandBasedBuilder']
 
 class Plugin(object):
     def get_builders(self):
         return {}
-
-    def get_build_hooks(self):
-        return {}
-
-class BuildHook(object):
-    def __init__(self, request):
-        self.request = request
-
-    def get_changed_branches(self):
-        raise NotImplementedError
 
 class Builder(object):
     def __init__(self, build):
@@ -32,8 +23,11 @@ class Builder(object):
             self.run()
             self.build.was_successful = True
         except BuildFailed:
+            print 'fail'
+            traceback.print_exc()
             self.build.was_successful = False
         except:
+            traceback.print_exc()
             self.build.was_successful = False
             # XXX #16964
             if not self.build.stderr:
@@ -48,25 +42,15 @@ class Builder(object):
             self.teardown_build()
 
     def setup_build(self):
-        self.repo_path = tempfile.mkdtemp()
-        os.rmdir(self.repo_path)
-        Repository = self.build.configuration.project.get_vcs_backend()
-        self.repo = Repository(
-            self.repo_path,
-            create=True,
-            src_url=self.build.configuration.project.repo_uri,
-            update_after_clone=True
-        )
-        self.repo.workdir.checkout_branch(self.build.commit.branch)
-        commit = self.build.commit
-        if commit.vcs_id is None:
-            changeset = self.repo.workdir.get_changeset()
-            commit.vcs_id = changeset.raw_id
-            commit.short_message = changeset.message.splitlines()[0]
-            commit.save()
+        # TODO use init + checkout?
+        self.local_repo = self.build.project.clone_repo()
+        self.local_repo.checkout(self.build.sha)
 
     def teardown_build(self):
-        shutil.rmtree(self.repo_path)
+        try:
+            shutil.rmtree(self.local_repo.path)
+        except AttributeError:
+            pass
 
     def format_exception(self):
         return '\n\n' + '\n\n'.join([
@@ -83,7 +67,7 @@ class CommandBasedBuilder(Builder):
     def run(self):
         cmd = self.get_cmd()
         # XXX directly pipe into files
-        proc = Popen(cmd, cwd=self.repo_path, stdout=PIPE, stderr=PIPE)
+        proc = Popen(cmd, cwd=self.local_repo.path, stdout=PIPE, stderr=PIPE)
         stdout, stderr = proc.communicate()
         self.build.stderr.save_named(stderr, save=False)
         self.build.stdout.save_named(stdout, save=False)

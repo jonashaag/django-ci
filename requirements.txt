@@ -1,6 +1,4 @@
 https://github.com/django/django/tarball/master
 -e git+https://github.com/ask/django-celery#egg=django-celery
 django-kombu
-vcs
 BeautifulSoup
-dulwich
